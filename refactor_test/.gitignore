@@ -1,0 +1,29 @@
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore local env files
+.env
+.env.*
+
+# Ignore node modules and build artifacts
+node_modules/
+build/
+dist/
+
+# Ignore PHP/composer artifacts if back exists
+vendor/
+composer.lock
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.cache
+
+# Ignore editor metadata
+/.idea/
+/.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.bak

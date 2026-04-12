@@ -1,1 +1,4 @@
 .DS_Store
+
+# Ignore the nested openclaw repository contents from the parent repo
+openclaw/
