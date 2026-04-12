@@ -1,0 +1,96 @@
+@import "rsuite/dist/rsuite.css";
+
+body {
+  color: #000 !important;
+}
+
+#root {
+  padding: 10px;
+}
+
+.rs-calendar-panel:not(.rs-calendar-compact)
+  .rs-calendar-table-row:not(.rs-calendar-table-header-row)
+  .rs-calendar-table-cell-content {
+  height: max-content;
+  min-height: 120px;
+}
+
+h2 {
+  font-size: inherit !important;
+  line-height: initial !important;
+}
+
+.rs-calendar-bordered .rs-calendar-table-cell {
+  border-right: 1px solid #000;
+}
+
+:root {
+  --rs-border-primary: #000 !important;
+  --rs-border-secondary: #000 !important;
+}
+
+.active {
+  background: rgb(208 248 255);
+  border: solid 1px #fff;
+}
+
+.dayorder-calendar-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.day-order-calendar-date-buttons {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.day-order-calendar-date-buttons button {
+  font-size: 14px;
+  padding: 0 5px;
+  font-weight: 700;
+  width: 100%;
+  text-align: left;
+  margin: 0 auto;
+  color: #000;
+}
+
+.rs-calendar-table-cell-content:hover {
+  background-color: inherit !important;
+}
+
+.day-order-calendar-date-buttons button:hover {
+  color: #000 !important;
+  text-decoration: underline;
+}
+
+.rs-calendar-table-cell-is-today {
+  background: #ffe2ac;
+}
+
+.rs-calendar-panel .rs-calendar-table-cell {
+  padding: 0;
+}
+
+.passed {
+  opacity: 0.4;
+}
+
+.day-order-calendar-date-buttons button.button1 {
+  background-color: #55cbcd;
+}
+
+.day-order-calendar-date-buttons button.button2 {
+  background-color: #cbaacb;
+}
+
+.day-order-calendar-date-buttons button.button3 {
+  background-color: #c6dbda;
+}
+
+.day-order-calendar-date-buttons button.button4 {
+  background-color: #fcb9aa;
+}
