@@ -4,7 +4,7 @@ import { Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, 
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../utils/env';
+import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
 
 const newContact = () => ({ name: '', contact: '', office: '', email: '' });
@@ -14,17 +14,17 @@ export default function CustomerUpdate() {
   const [params] = useSearchParams();
   const id = params.get('id');
   const { userName } = useStore();
-  const [form, setForm] = useState({ customerId: id, customerType: 'Agencia', customerName: '', contacts: [] });
+  const [form, setForm] = useState({ customerId: id, customerType: '', customerName: '', contacts: [] });
 
   useEffect(() => {
-    fetch(`${API_URL}/customers/list-by-id?customer_id=${id}`)
+    apiFetch(`/customers/list-by-id?customer_id=${id}`)
       .then(r => r.json())
       .then(data => {
         if (!Array.isArray(data) || data.length === 0) return;
         const first = data[0];
         setForm({
           customerId: first.customerId,
-          customerType: first.customerType || 'Agencia',
+          customerType: first.customerType || '',
           customerName: first.customerName || '',
           contacts: data.map(d => ({ name: d.contactName||'', contact: d.contactContact||'', office: d.contactOffice||'', email: d.contactEmail||'' })),
         });
@@ -37,8 +37,8 @@ export default function CustomerUpdate() {
 
   async function handleSubmit() {
     const payload = { ...form, createdBy: userName, lastEditBy: userName };
-    const res = await fetch(`${API_URL}/customers/update`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await apiFetch('/customers/update', {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -59,6 +59,7 @@ export default function CustomerUpdate() {
               <FormControl fullWidth size="small">
                 <InputLabel>Tipo</InputLabel>
                 <Select value={form.customerType} label="Tipo" onChange={e => setForm(p => ({ ...p, customerType: e.target.value }))}>
+                  <MenuItem value=""><em>—</em></MenuItem>
                   <MenuItem value="Agencia">Agência</MenuItem>
                   <MenuItem value="Guia">Guia</MenuItem>
                   <MenuItem value="ClienteFinal">Cliente Final</MenuItem>

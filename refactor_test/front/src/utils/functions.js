@@ -50,6 +50,16 @@ export function selectVariant(variants, totalPaxCount) {
   return sorted[sorted.length - 1]; // fallback to smallest
 }
 
+// Parse adicional JSON array stored in DB (e.g. "[]" or '["Extra1","Extra2"]')
+export function formatAdicional(val) {
+  if (!val || val === '[]') return '';
+  try {
+    const arr = JSON.parse(val);
+    if (Array.isArray(arr)) return arr.filter(Boolean).join(', ');
+  } catch {}
+  return val;
+}
+
 // Generate months array
 export function getAllMonths() {
   return [
@@ -63,4 +73,22 @@ export function getAllMonths() {
 export function getWeekDayName(dow) {
   const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
   return days[dow] || '';
+}
+
+export function exportToCSV(filename, columns, rows) {
+  const headerRow = columns.map(c => `"${String(c.label).replace(/"/g, '""')}"`).join(',');
+  const dataRows = rows.map(row =>
+    columns.map(c => {
+      const val = c.csvValue ? c.csvValue(row) : (row[c.key] ?? '');
+      return `"${String(val).replace(/"/g, '""')}"`;
+    }).join(',')
+  ).join('\n');
+  const csv = `﻿${headerRow}\n${dataRows}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

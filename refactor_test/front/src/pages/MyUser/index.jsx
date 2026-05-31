@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { Box, Card, CardContent, Typography, Grid, TextField, Button } from '@mui/material';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../utils/env';
+import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
-import { getToken } from '../../utils/storage';
 
 export default function MyUser() {
   const { userName } = useStore();
   const [form, setForm] = useState({ username: '', name: '', password: '' });
 
   async function handleSubmit() {
-    const token = getToken();
-    const res = await fetch(`${API_URL}/users/update`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, token }),
+    const res = await apiFetch('/users/update', {
+      method: 'POST',
+      body: JSON.stringify(form),
     });
     const data = await res.json();
     if (data.error) { Swal.fire('Erro', data.error === true ? 'Erro' : data.error, 'error'); }

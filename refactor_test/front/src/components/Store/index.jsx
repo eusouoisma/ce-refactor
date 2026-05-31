@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { API_URL } from '../../utils/env';
+import { apiFetch } from '../../utils/api';
 import { getToken, setToken, getPermissions, setPermissions, getUserName, setUserName, clearStorage } from '../../utils/storage';
 
 const StoreContext = createContext(null);
@@ -35,7 +36,7 @@ export function StoreProvider({ children }) {
       .finally(() => setLoading(false));
 
     // Get current year
-    fetch(`${API_URL}/settings/current-year`)
+    apiFetch('/settings/current-year')
       .then(r => r.json())
       .then(val => setCurrentYear(val || ''))
       .catch(() => {});

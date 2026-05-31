@@ -4,7 +4,7 @@ import { Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, 
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../utils/env';
+import { apiFetch } from '../../utils/api';
 
 const newVariant = () => ({
   pricingType: 'person', priceAdult: '', priceHalf: '', priceNet: '', priceBrazilian: '',
@@ -19,7 +19,7 @@ export default function ProductUpdate() {
   const [form, setForm] = useState({ productId: id, type: 'regular', category: 'atividade', productName: '', duration: '', variants: [] });
 
   useEffect(() => {
-    fetch(`${API_URL}/products/list-by-id?product_id=${id}`)
+    apiFetch(`/products/list-by-id?product_id=${id}`)
       .then(r => r.json())
       .then(data => {
         if (!Array.isArray(data) || data.length === 0) return;
@@ -46,45 +46,48 @@ export default function ProductUpdate() {
       });
   }, [id]);
 
+  const isAdicionais = form.category === 'adicional';
+  const backPath = isAdicionais ? '/listar-adicionais' : '/listar-produtos';
+
   function setVariant(i, f, v) {
     setForm(p => ({ ...p, variants: p.variants.map((vr, idx) => idx === i ? { ...vr, [f]: v } : vr) }));
   }
 
   async function handleSubmit() {
-    const res = await fetch(`${API_URL}/products/update`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await apiFetch('/products/update', {
+      method: 'POST',
       body: JSON.stringify(form),
     });
     const data = await res.json();
     if (data.error) { Swal.fire('Erro', data.message || 'Erro', 'error'); }
-    else navigate('/listar-produtos');
+    else navigate(backPath);
   }
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>Editar Produto</Typography>
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+        {isAdicionais ? 'Editar Adicional' : 'Editar Produto'}
+      </Typography>
       <Card>
         <CardContent>
           <Grid container spacing={2}>
-            <Grid item xs={3}>
-              <FormControl fullWidth size="small"><InputLabel>Tipo</InputLabel>
-                <Select value={form.type} label="Tipo" onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
-                  <MenuItem value="regular">Regular</MenuItem>
-                  <MenuItem value="privativo">Privativo</MenuItem>
-                  <MenuItem value="show/evento">Show/Evento</MenuItem>
-                </Select>
-              </FormControl>
+            {!isAdicionais && (
+              <Grid item xs={3}>
+                <FormControl fullWidth size="small"><InputLabel>Tipo</InputLabel>
+                  <Select value={form.type} label="Tipo" onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
+                    <MenuItem value="regular">Regular</MenuItem>
+                    <MenuItem value="privativo">Privativo</MenuItem>
+                    <MenuItem value="show/evento">Show/Evento</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            <Grid item xs={isAdicionais ? 8 : 5}>
+              <TextField fullWidth size="small" label="Nome" value={form.productName} onChange={e => setForm(p => ({ ...p, productName: e.target.value }))} />
             </Grid>
-            <Grid item xs={3}>
-              <FormControl fullWidth size="small"><InputLabel>Categoria</InputLabel>
-                <Select value={form.category} label="Categoria" onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
-                  <MenuItem value="atividade">Atividade</MenuItem>
-                  <MenuItem value="adicional">Adicional</MenuItem>
-                </Select>
-              </FormControl>
+            <Grid item xs={isAdicionais ? 4 : 2}>
+              <TextField fullWidth size="small" label="Duração" value={form.duration} onChange={e => setForm(p => ({ ...p, duration: e.target.value }))} />
             </Grid>
-            <Grid item xs={4}><TextField fullWidth size="small" label="Nome" value={form.productName} onChange={e => setForm(p => ({ ...p, productName: e.target.value }))} /></Grid>
-            <Grid item xs={2}><TextField fullWidth size="small" label="Duração" value={form.duration} onChange={e => setForm(p => ({ ...p, duration: e.target.value }))} /></Grid>
           </Grid>
           <Divider sx={{ my: 2 }} />
           {form.variants.map((v, i) => (
@@ -104,10 +107,21 @@ export default function ProductUpdate() {
                     <Grid item xs={2}><TextField fullWidth size="small" label="Adulto" type="number" value={v.priceAdult} onChange={e => setVariant(i, 'priceAdult', e.target.value)} /></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="Meia" type="number" value={v.priceHalf} onChange={e => setVariant(i, 'priceHalf', e.target.value)} /></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="NET" type="number" value={v.priceNet} onChange={e => setVariant(i, 'priceNet', e.target.value)} /></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Brasileiro" type="number" value={v.priceBrazilian} onChange={e => setVariant(i, 'priceBrazilian', e.target.value)} /></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="Cortesia" type="number" value={v.priceFree} onChange={e => setVariant(i, 'priceFree', e.target.value)} /></Grid>
+                    <Grid item xs={12}><Divider><Typography variant="caption" color="text.secondary">Alta Temporada</Typography></Divider></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Adulto Alta" type="number" value={v.priceAdultHighSeason} onChange={e => setVariant(i, 'priceAdultHighSeason', e.target.value)} /></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Meia Alta" type="number" value={v.priceHalfHighSeason} onChange={e => setVariant(i, 'priceHalfHighSeason', e.target.value)} /></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="NET Alta" type="number" value={v.priceNetHighSeason} onChange={e => setVariant(i, 'priceNetHighSeason', e.target.value)} /></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Brasileiro Alta" type="number" value={v.priceBrazilianHighSeason} onChange={e => setVariant(i, 'priceBrazilianHighSeason', e.target.value)} /></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Cortesia Alta" type="number" value={v.priceFreeHighSeason} onChange={e => setVariant(i, 'priceFreeHighSeason', e.target.value)} /></Grid>
                   </>
                 ) : (
-                  <Grid item xs={2}><TextField fullWidth size="small" label="Grupo" type="number" value={v.priceGroup} onChange={e => setVariant(i, 'priceGroup', e.target.value)} /></Grid>
+                  <>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Grupo" type="number" value={v.priceGroup} onChange={e => setVariant(i, 'priceGroup', e.target.value)} /></Grid>
+                    <Grid item xs={12}><Divider><Typography variant="caption" color="text.secondary">Alta Temporada</Typography></Divider></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Grupo Alta" type="number" value={v.priceGroupHighSeason} onChange={e => setVariant(i, 'priceGroupHighSeason', e.target.value)} /></Grid>
+                  </>
                 )}
                 <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <IconButton color="error" onClick={() => setForm(p => ({ ...p, variants: p.variants.filter((_, idx) => idx !== i) }))}>
@@ -120,7 +134,7 @@ export default function ProductUpdate() {
           <Button startIcon={<AddIcon />} onClick={() => setForm(p => ({ ...p, variants: [...p.variants, newVariant()] }))}>Adicionar Variante</Button>
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
             <Button variant="contained" onClick={handleSubmit}>Salvar</Button>
-            <Button variant="text" onClick={() => navigate('/listar-produtos')}>Cancelar</Button>
+            <Button variant="text" onClick={() => navigate(backPath)}>Cancelar</Button>
           </Box>
         </CardContent>
       </Card>

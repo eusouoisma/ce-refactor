@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from './components/Routes/Private';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import Login from './pages/Login';
 import Default from './pages/Default';
@@ -39,6 +40,12 @@ const P = (perms, Child) => (
   <PrivateRoute permissions={perms}><Child /></PrivateRoute>
 );
 
+const PE = (perms, Child) => (
+  <ErrorBoundary>
+    <PrivateRoute permissions={perms}><Child /></PrivateRoute>
+  </ErrorBoundary>
+);
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -65,15 +72,17 @@ export default function AppRoutes() {
       <Route path="/pagamentos-ordem-do-dia" element={P([2,4,5], DayOrderPayments)} />
       <Route path="/opcoes-ordem-do-dia" element={P([1,2,3,4,5], DayOrderSettings)} />
       <Route path="/cadastrar-produto" element={P([1,2,3,4,5], ProductInput)} />
+      <Route path="/cadastrar-adicional" element={P([1,2,3,4,5], ProductInput)} />
       <Route path="/listar-produtos" element={P([1,2,3,4,5], ProductList)} />
+      <Route path="/listar-adicionais" element={P([1,2,3,4,5], ProductList)} />
       <Route path="/editar-produto" element={P([1,2,3,4,5], ProductUpdate)} />
       <Route path="/configuracoes" element={P([1,2,4,5], Settings)} />
       <Route path="/usuarios" element={P([4,5], Users)} />
       <Route path="/meu-usuario" element={P([1,2,3,4,5,6], MyUser)} />
-      <Route path="/analises-por-pais" element={P([2,4,5,6], AnalysisByCountry)} />
-      <Route path="/analises-por-cliente" element={P([2,4,5,6], AnalysisByCustomers)} />
-      <Route path="/analises-por-hora" element={P([2,4,5,6], AnalysisByHour)} />
-      <Route path="/analises-por-produto" element={P([2,4,5,6], AnalysisByProduct)} />
+      <Route path="/analises-por-pais" element={PE([2,4,5,6], AnalysisByCountry)} />
+      <Route path="/analises-por-cliente" element={PE([2,4,5,6], AnalysisByCustomers)} />
+      <Route path="/analises-por-hora" element={PE([2,4,5,6], AnalysisByHour)} />
+      <Route path="/analises-por-produto" element={PE([2,4,5,6], AnalysisByProduct)} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

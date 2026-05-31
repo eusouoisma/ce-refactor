@@ -1,0 +1,303 @@
+const { Tour } = require('../domain/entities/Tour');
+const { getTodaySP, formatDate } = require('../shared/db');
+const { AppError } = require('../shared/AppError');
+
+class TourService {
+  constructor({ pool, tourRepo, settingsRepo, dayOrderRepo, comissionRepo, changeRequestRepo, customerRepo }) {
+    this.pool = pool;
+    this.tourRepo = tourRepo;
+    this.settingsRepo = settingsRepo;
+    this.dayOrderRepo = dayOrderRepo;
+    this.comissionRepo = comissionRepo;
+    this.changeRequestRepo = changeRequestRepo;
+    this.customerRepo = customerRepo;
+  }
+
+  _isTourRegularAndDateNotPassed(type, tourDate) {
+    if (type !== 'regular') return false;
+    return tourDate >= getTodaySP();
+  }
+
+  async create(data) {
+    const t = Tour.coerce(data);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentYear = await this.settingsRepo.getCurrentYear();
+      if (!t.orderRef) t.orderRef = await this.settingsRepo.generateOrderRef(client);
+      const dayOrderId = await this.dayOrderRepo.getOrCreate(t.tourDate, client);
+      const tourId = await this.tourRepo.insert(t, currentYear, dayOrderId, client);
+
+      if (t.commissioned === '1') {
+        await this.comissionRepo.insert(tourId, t.orderRef, { ...data, comissionPaid: t.comissionPaid === '1' }, currentYear, client);
+      }
+
+      // Auto-create customer/contact if not exists
+      const existingCustomer = await this.customerRepo.findByName(t.client, client);
+      let customerId;
+      if (!existingCustomer) {
+        customerId = await this.customerRepo.insert(t.client, data.newCustomerType || '', t.createdBy, t.lastEditBy, client);
+        await this.customerRepo.insertContact(customerId, { name: t.clientName, contact: '', office: '', email: t.clientContact, createdBy: t.createdBy, lastEditBy: t.lastEditBy }, client);
+      } else {
+        customerId = existingCustomer.id;
+        const existing = await this.customerRepo.findContactByCustomerAndName(t.client, t.clientName, client);
+        if (!existing) {
+          await this.customerRepo.insertContact(customerId, { name: t.clientName, contact: '', office: '', email: t.clientContact, createdBy: t.createdBy, lastEditBy: t.lastEditBy }, client);
+        }
+      }
+
+      await client.query('COMMIT');
+      return { error: false };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async update(id, data) {
+    const t = Tour.coerce(data);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentYear = await this.settingsRepo.getCurrentYear();
+      const current = await this.tourRepo.findCurrentState(id, client);
+      const currentTourDate = current?.tourDate ? new Date(current.tourDate).toISOString().split('T')[0] : '';
+
+      let dayOrderId;
+      if (t.tourDate !== currentTourDate) {
+        dayOrderId = await this.dayOrderRepo.getForDateChange(t.tourDate, client);
+      } else {
+        dayOrderId = current.dayOrderId;
+      }
+
+      const includeFinancial = this._isTourRegularAndDateNotPassed(t.type, t.tourDate);
+      await this.tourRepo.update(id, t, dayOrderId, includeFinancial, client);
+
+      await this.changeRequestRepo.deleteByTourId(id, client);
+      for (const cr of (data.changeRequests || [])) {
+        await this.changeRequestRepo.insert(id, cr, t.lastEditBy, client);
+      }
+
+      if (t.commissioned === '1') {
+        const comData = { ...data, comissionPaid: t.comissionPaid === '1' };
+        if (data.commissionId) {
+          const existing = await this.comissionRepo.findById_linked(data.commissionId, client);
+          if (!existing) {
+            await this.comissionRepo.insert(id, t.orderRef, comData, currentYear, client);
+          } else {
+            await this.comissionRepo.update(data.commissionId, comData, client);
+          }
+        } else {
+          await this.comissionRepo.insert(id, t.orderRef, comData, currentYear, client);
+        }
+      }
+
+      await client.query('COMMIT');
+      return { error: false };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listAll(year, months, filters) {
+    return this.tourRepo.findAll(year, months, filters);
+  }
+
+  async listAllPaginated(year, months, filters, limit, offset) {
+    return this.tourRepo.findAllPaginated(year, months, filters, limit, offset);
+  }
+
+  async filterOptions(year, months, filters, column) {
+    return this.tourRepo.findFilterOptions(year, months, filters, column);
+  }
+
+  async listAllFinancial(year, months, filters) {
+    return this.tourRepo.findAllFinancial(year, months, filters);
+  }
+
+  async listAllFinancialPaginated(year, months, filters, limit, offset) {
+    const currentYear = await this.settingsRepo.getCurrentYear();
+    return this.tourRepo.findAllFinancialPaginated(year, months, currentYear, filters, limit, offset);
+  }
+
+  async financialFilterOptions(year, months, filters, column) {
+    const currentYear = await this.settingsRepo.getCurrentYear();
+    return this.tourRepo.findFinancialFilterOptions(year, months, currentYear, filters, column);
+  }
+
+  async listAllSummaryPaginated(months, year, filters, limit, offset) {
+    return this.tourRepo.findAllSummaryPaginated(months, year, filters, limit, offset);
+  }
+
+  async summaryFilterOptions(months, year, filters, column) {
+    return this.tourRepo.findSummaryFilterOptions(months, year, filters, column);
+  }
+
+  async listAllSummary(months, year) {
+    const rows = await this.tourRepo.findAllSummary(months, year);
+    return rows
+      .sort((a, b) => {
+        if (a.tourDate < b.tourDate) return -1;
+        if (a.tourDate > b.tourDate) return 1;
+        return (a.tourHour || '') < (b.tourHour || '') ? -1 : 1;
+      })
+      .map(r => {
+        const guides = r.guides
+          ? [...new Set(r.guides.split(',').map(g => g.trim()).filter(Boolean))].join(',')
+          : '';
+        return { ...r, guides, formatedTourDate: formatDate(r.tourDate) };
+      });
+  }
+
+  async listById(tourId) {
+    const tour = await this.tourRepo.findById(tourId);
+    if (!tour) throw new AppError('Not found', 404);
+    tour.changeRequests = await this.changeRequestRepo.findByTourId(tourId);
+    return tour;
+  }
+
+  async listCanceled(year, months) {
+    return this.tourRepo.findCanceled(year, months);
+  }
+
+  async listCanceledPaginated(year, months, limit, offset) {
+    return this.tourRepo.findCanceledPaginated(year, months, limit, offset);
+  }
+
+  async cancel(id, cancelReason, lastEditBy) {
+    await this.tourRepo.cancel(id, cancelReason, lastEditBy);
+    return { error: false };
+  }
+
+  async cancelMultiple(ids, cancelReason, lastEditBy) {
+    const idArr = ids.split(',').map(Number);
+    const result = await this.tourRepo.cancelMultiple(idArr, cancelReason, lastEditBy);
+    return {
+      error: false,
+      affectedRows: result.rowCount,
+      canceledIds: result.rows.map(r => r.id),
+    };
+  }
+
+  async uncancel(id, lastEditBy) {
+    await this.tourRepo.uncancel(id, lastEditBy);
+    return { error: false };
+  }
+
+  async createFinancial(data) {
+    const t = Tour.coerceFinancial(data);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentYear = await this.settingsRepo.getCurrentYear();
+      if (!t.orderRef) t.orderRef = await this.settingsRepo.generateOrderRef(client);
+      const dayOrderId = await this.dayOrderRepo.getOrCreate(t.tourDate, client);
+      const tourId = await this.tourRepo.insertFinancial(t, currentYear, dayOrderId, client);
+
+      if (t.commissioned === '1') {
+        await this.comissionRepo.insert(tourId, t.orderRef, { ...data, comissionPaid: t.comissionPaid === '1' }, currentYear, client);
+      }
+
+      await client.query('COMMIT');
+      return { error: false };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async updateFinancial(id, data) {
+    const t = Tour.coerceFinancial(data);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentYear = await this.settingsRepo.getCurrentYear();
+      const current = await this.tourRepo.findCurrentState(id, client);
+      const currentTourDate = current?.tourDate ? new Date(current.tourDate).toISOString().split('T')[0] : '';
+
+      let dayOrderId;
+      if (t.tourDate !== currentTourDate) {
+        dayOrderId = await this.dayOrderRepo.getForDateChange(t.tourDate, client);
+      } else {
+        dayOrderId = current.dayOrderId;
+      }
+
+      await this.tourRepo.updateFinancial(id, t, dayOrderId, client);
+
+      await this.changeRequestRepo.deleteByTourId(id, client);
+      for (const cr of (data.changeRequests || [])) {
+        if (cr.approved) {
+          await this.tourRepo.setField(id, cr.type, cr.newValue, client);
+        } else if (!cr.approved && !cr.reproved) {
+          await this.changeRequestRepo.insert(id, cr, t.lastEditBy, client);
+        }
+      }
+
+      if (t.commissioned === '1') {
+        const comData = { ...data, comissionPaid: t.comissionPaid === '1' };
+        if (data.commissionId) {
+          const existing = await this.comissionRepo.findById_linked(data.commissionId, client);
+          if (!existing) {
+            await this.comissionRepo.insert(id, t.orderRef, comData, currentYear, client);
+          } else {
+            await this.comissionRepo.updateWithOrderRef(data.commissionId, comData, client);
+          }
+        } else {
+          await this.comissionRepo.insert(id, t.orderRef, comData, currentYear, client);
+        }
+      }
+
+      await client.query('COMMIT');
+      return { error: false };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async availableHours(date, type, status) {
+    return this.tourRepo.findAvailableHours(date, type, status);
+  }
+
+  async listClientsByDateAndHour(date, hour) {
+    const clients = await this.tourRepo.findClientsByDateAndHour(date, hour);
+    return { error: false, clients };
+  }
+
+  async markAsLateCheck(id, lastEditBy) {
+    await this.tourRepo.markLateCheck(id, lastEditBy);
+    return { error: false };
+  }
+
+  async regularList(date, hour) {
+    const rows = await this.tourRepo.findRegularList(date, hour);
+    return rows.map(r => ({
+      n: r.n,
+      guideAgency: r.client,
+      adulto: r.paxAdult,
+      net: r.paxNet,
+      brasileiro: r.paxBrazilian,
+      meia: r.paxHalf,
+      free: r.paxFree,
+      total: (parseInt(r.paxAdult)||0) + (parseInt(r.paxNet)||0) + (parseInt(r.paxBrazilian)||0) + (parseInt(r.paxHalf)||0) + (parseInt(r.paxFree)||0),
+      nomePax: r.clientName,
+      guia: r.companionName,
+      paymentMethod: r.paymentMethod,
+      valorTotal: r.totalValue,
+      comissao: r.commissioned == 1 ? 'Sim' : 'Não',
+      statusPgto: r.paymentStatus,
+      obs: r.comments,
+    }));
+  }
+}
+
+module.exports = { TourService };

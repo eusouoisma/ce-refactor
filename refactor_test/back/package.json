@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "description": "CE System Backend - Node.js + Express + PostgreSQL",
   "main": "src/app.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "migrate": "node -e \"require('./src/db').runMigrations()\""
+    "migrate": "node -e \"require('./src/shared/db').runMigrations().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

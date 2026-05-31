@@ -2,21 +2,34 @@
   "name": "ce-refactor-front",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "serve -s dist -l tcp://0.0.0.0:${PORT:-3000}"
   },
   "dependencies": {
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
     "@mui/icons-material": "^5.15.20",
     "@mui/material": "^5.15.20",
+    "chart.js": "^4.5.1",
+    "chartjs-plugin-datalabels": "^2.2.0",
+    "dayjs": "^1.11.21",
     "numeral": "^2.0.6",
     "react": "^18.3.1",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^18.3.1",
+    "react-export-table-to-excel": "^1.0.6",
+    "react-markdown": "^10.1.0",
     "react-number-format": "^5.3.4",
     "react-router-dom": "^6.23.1",
+    "react-to-print": "^2.15.1",
+    "remark-gfm": "^4.0.1",
+    "serve": "^14.2.3",
     "sweetalert2": "^11.12.1"
   },
   "devDependencies": {

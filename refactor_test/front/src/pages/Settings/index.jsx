@@ -1,108 +1,203 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Typography, Card, CardContent, Grid, TextField, Select, MenuItem, FormControl, InputLabel, Button, Table, TableHead, TableRow, TableCell, TableBody, TableContainer, Paper, IconButton } from '@mui/material';
+import {
+  Box, Paper, Typography, TextField, Button,
+  Chip, Stack, Divider, CircularProgress,
+} from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import LogoutIcon from '@mui/icons-material/Logout';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../utils/env';
-import { useStore } from '../../components/Store';
+import { apiFetch } from '../../utils/api';
+import { COLORS } from '../../utils/colors';
 
-const SETTING_TYPES = [
-  'activity', 'platform', 'language', 'status', 'currency', 'paymentMethod',
-  'paymentStatus', 'local', 'guide', 'company', 'accountNumber', 'country',
+const GROUPS = [
+  { type: 'platform',      label: 'Plataforma',             placeholder: 'Nova plataforma',        color: '#fdab3d' },
+  { type: 'language',      label: 'Idioma',                 placeholder: 'Novo idioma',             color: '#0086c0' },
+  { type: 'status',        label: 'Status',                 placeholder: 'Novo status',             color: '#00c875' },
+  { type: 'paymentStatus', label: 'Status de Pagamento',    placeholder: 'Novo status de pagamento',color: '#a25ddc' },
+  { type: 'paymentMethod', label: 'Forma de Pagamento',     placeholder: 'Nova forma de pagamento', color: '#ff642e' },
+  { type: 'local',         label: 'Local',                  placeholder: 'Novo local',              color: '#16a2d7' },
+  { type: 'guide',         label: 'Guia',                   placeholder: 'Novo guia',               color: '#ea4335' },
+  { type: 'company',       label: 'Empresa',                placeholder: 'Nova empresa',            color: '#34a853' },
+  { type: 'accountNumber', label: 'Número de Conta',        placeholder: 'Novo número de conta',    color: '#676879' },
+  { type: 'country',       label: 'País',                   placeholder: 'Novo país',               color: '#4285f4' },
 ];
 
-export default function Settings() {
-  const navigate = useNavigate();
-  const { setCurrentYear } = useStore();
-  const [settings, setSettings] = useState([]);
-  const [newSetting, setNewSetting] = useState({ type: 'activity', value: '' });
-  const [newYear, setNewYear] = useState('');
+const EXCLUDED_TYPES = new Set(['orderRefCount', 'CurrentYear', 'currentYear']);
 
-  function load() {
-    fetch(`${API_URL}/settings/list-all`).then(r => r.json()).then(d => setSettings(Array.isArray(d) ? d : []));
-  }
+function SettingSection({ group, items, onAdd, onDelete }) {
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => { load(); }, []);
-
-  async function addSetting() {
-    await fetch(`${API_URL}/settings/create`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newSetting),
-    });
-    setNewSetting({ type: 'activity', value: '' });
-    load();
-  }
-
-  async function deleteSetting(id) {
-    const confirm = await Swal.fire({ title: 'Excluir?', showCancelButton: true, confirmButtonText: 'Sim' });
-    if (!confirm.isConfirmed) return;
-    await fetch(`${API_URL}/settings/delete?id=${id}`);
-    load();
-  }
-
-  async function updateYear() {
-    await fetch(`${API_URL}/settings/update-current-year`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: newYear }),
-    });
-    setCurrentYear(newYear);
-    Swal.fire('Ano atualizado!', '', 'success');
-  }
-
-  async function logoutAll() {
-    await fetch(`${API_URL}/users/logout-all`);
-    navigate('/login');
+  async function handleAdd() {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    await onAdd(group.type, trimmed);
+    setValue('');
+    setSaving(false);
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>Configurações</Typography>
+    <Paper variant="outlined" sx={{ p: 2.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+        <Box sx={{ width: 3, height: 14, bgcolor: group.color, borderRadius: 2, flexShrink: 0 }} />
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {group.label}
+        </Typography>
+      </Box>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>Ano Fiscal</Typography>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={4}><TextField fullWidth size="small" label="Novo Ano" value={newYear} onChange={e => setNewYear(e.target.value)} /></Grid>
-            <Grid item xs={4}><Button variant="contained" onClick={updateYear}>Atualizar Ano</Button></Grid>
-            <Grid item xs={4}><Button variant="outlined" color="error" onClick={logoutAll}>Logout Todos os Usuários</Button></Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+      {items.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontStyle: 'italic' }}>
+          Nenhum item cadastrado
+        </Typography>
+      ) : (
+        <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.5 }}>
+          {items.map(item => (
+            <Chip
+              key={item.id}
+              label={item.value}
+              size="small"
+              onDelete={() => onDelete(item.id, item.value)}
+              deleteIcon={<DeleteIcon sx={{ fontSize: '14px !important' }} />}
+              sx={{
+                bgcolor: '#f5f6f8',
+                border: `1px solid ${COLORS.border}`,
+                fontWeight: 500,
+                '& .MuiChip-deleteIcon': { color: '#aaa', '&:hover': { color: '#e2445c' } },
+              }}
+            />
+          ))}
+        </Stack>
+      )}
 
-      <Card>
-        <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>Opções do Sistema</Typography>
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={4}>
-              <FormControl fullWidth size="small"><InputLabel>Tipo</InputLabel>
-                <Select value={newSetting.type} label="Tipo" onChange={e => setNewSetting(p => ({ ...p, type: e.target.value }))}>
-                  {SETTING_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={6}><TextField fullWidth size="small" label="Valor" value={newSetting.value} onChange={e => setNewSetting(p => ({ ...p, value: e.target.value }))} /></Grid>
-            <Grid item xs={2}><Button variant="contained" onClick={addSetting}>Adicionar</Button></Grid>
-          </Grid>
-          <TableContainer component={Paper} sx={{ maxHeight: '50vh', overflow: 'auto' }}>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow><TableCell>Tipo</TableCell><TableCell>Valor</TableCell><TableCell /></TableRow>
-              </TableHead>
-              <TableBody>
-                {settings.filter(s => !['orderRefCount', 'CurrentYear', 'currentYear'].includes(s.type)).map(s => (
-                  <TableRow key={s.id}>
-                    <TableCell>{s.type}</TableCell>
-                    <TableCell>{s.value}</TableCell>
-                    <TableCell>
-                      <IconButton size="small" color="error" onClick={() => deleteSetting(s.id)}><DeleteIcon fontSize="small" /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
+      <Stack direction="row" gap={1} alignItems="center">
+        <TextField
+          size="small"
+          placeholder={group.placeholder}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          sx={{ flexGrow: 1, maxWidth: 360 }}
+        />
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <AddIcon />}
+          onClick={handleAdd}
+          disabled={saving || !value.trim()}
+        >
+          Adicionar
+        </Button>
+      </Stack>
+    </Paper>
+  );
+}
+
+export default function Settings() {
+  const navigate = useNavigate();
+  const [settings, setSettings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch('/settings/list-all')
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) setSettings(d);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAdd = useCallback(async (type, value) => {
+    const res = await apiFetch('/settings/create', {
+      method: 'POST',
+      body: JSON.stringify({ type, value }),
+    }).then(r => r.json()).catch(() => ({ error: true }));
+
+    if (res.error) {
+      Swal.fire({ icon: 'error', title: 'Erro', text: 'Não foi possível adicionar.' });
+      return;
+    }
+    // Reload to get the new id
+    const fresh = await apiFetch('/settings/list-all').then(r => r.json()).catch(() => null);
+    if (fresh) setSettings(fresh);
+  }, []);
+
+  const handleDelete = useCallback(async (id, label) => {
+    const { isConfirmed } = await Swal.fire({
+      title: `Excluir "${label}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Excluir',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#e2445c',
+    });
+    if (!isConfirmed) return;
+
+    setSettings(prev => prev.filter(s => s.id !== id));
+    await apiFetch(`/settings/delete?id=${id}`).catch(() => {});
+  }, []);
+
+  async function handleLogoutAll() {
+    const { isConfirmed } = await Swal.fire({
+      title: 'Deslogar todos os usuários?',
+      text: 'Todos os usuários ativos serão desconectados.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sim, deslogar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#e2445c',
+    });
+    if (!isConfirmed) return;
+    await apiFetch('/users/logout-all').catch(() => {});
+    navigate('/login');
+  }
+
+  const itemsByType = settings.reduce((acc, s) => {
+    if (EXCLUDED_TYPES.has(s.type)) return acc;
+    if (!acc[s.type]) acc[s.type] = [];
+    acc[s.type].push(s);
+    return acc;
+  }, {});
+
+  return (
+    <Box sx={{ p: 3, maxWidth: 900 }}>
+      <Typography variant="subtitle2" color="text.secondary">Sistema</Typography>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 3 }}>Configurações</Typography>
+
+      <Box sx={{ mb: 3 }}>
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          startIcon={<LogoutIcon />}
+          onClick={handleLogoutAll}
+        >
+          Deslogar todos os usuários
+        </Button>
+      </Box>
+
+      <Divider sx={{ mb: 3 }} />
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Stack spacing={2}>
+          {GROUPS.map(group => (
+            <SettingSection
+              key={group.type}
+              group={group}
+              items={itemsByType[group.type] || []}
+              onAdd={handleAdd}
+              onDelete={handleDelete}
+            />
+          ))}
+        </Stack>
+      )}
     </Box>
   );
 }

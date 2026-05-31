@@ -1,0 +1,81 @@
+class Tour {
+  static coerce(data = {}) {
+    const d = data;
+    return {
+      type:                d.type                || '',
+      orderRef:            d.orderRef            || '',
+      platform:            d.platform            || '',
+      activity:            d.activity            || '',
+      adicional:           d.adicional           || '',
+      duration:            d.duration            || '',
+      tourDate:            d.tourDate,
+      tourHour:            d.tourHour            || '',
+      local:               d.local               || '',
+      status:              d.status              || '',
+      language:            d.language            || '',
+      client:              d.client              || '',
+      paxAdult:            d.paxAdult            || 0,
+      paxHalf:             d.paxHalf             || 0,
+      paxFree:             d.paxFree             || 0,
+      paxNet:              d.paxNet              || 0,
+      paxBrazilian:        d.paxBrazilian        || 0,
+      currency:            d.currency            || '',
+      paymentMethod:       d.paymentMethod       || '',
+      totalValue:          d.totalValue          || '',
+      numberOfGroups:      d.numberOfGroups      || 0,
+      ceGuide:             Array.isArray(d.ceGuide) ? d.ceGuide.join(',') : (d.ceGuide || ''),
+      clientName:          d.clientName          || '',
+      clientContact:       d.clientContact       || '',
+      country:             d.country             || '',
+      emailSubject:        d.emailSubject        || '',
+      companionName:       d.companionName       || '',
+      companionContact:    d.companionContact    || '',
+      commissioned:        d.commissioned        ? '1' : '0',
+      comissionPaid:       d.comissionPaid       ? '1' : '0',
+      comments:            d.comments            || '',
+      conversationHistory: d.conversationHistory || '',
+      paymentStatus:       d.paymentStatus       || '',
+      isHighSeason:        d.isHighSeason        ? '1' : '0',
+      dateOfRegistration:  d.dateOfRegistration  || null,
+      createdBy:           d.createdBy           || '',
+      lastEditBy:          d.lastEditBy          || '',
+    };
+  }
+
+  static coerceFinancial(data = {}) {
+    const d = data;
+    return {
+      type:                d.type                || 'regular',
+      orderRef:            d.orderRef            || '',
+      platform:            d.platform            || '',
+      activity:            d.activity            || '',
+      adicional:           d.adicional           || '',
+      tourDate:            d.tourDate,
+      tourHour:            d.tourHour            || '',
+      status:              d.status              || '',
+      paymentStatus:       d.paymentStatus       || '',
+      client:              d.client              || '',
+      clientName:          d.clientName          || '',
+      clientContact:       d.clientContact       || '',
+      paymentMethod:       d.paymentMethod       || '',
+      currency:            d.currency            || '',
+      totalValue:          d.totalValue          || '',
+      netValue:            d.netValue            || 0,
+      financialComments:   d.financialComments   || '',
+      company:             d.company             || '',
+      invoiceNumber:       d.invoiceNumber       || '',
+      accountNumber:       d.accountNumber       || '',
+      paymentDate:         d.paymentDate         || null,
+      isHighSeason:        d.isHighSeason        ? '1' : '0',
+      commissioned:        d.commissioned        ? '1' : '0',
+      comissionPaid:       d.comissionPaid       ? '1' : '0',
+      dateOfRegistration:  d.dateOfRegistration  || null,
+      createdBy:           d.createdBy           || '',
+      lastEditBy:          d.lastEditBy          || '',
+      conversationHistory: d.conversationHistory || '',
+      comments:            d.comments            || '',
+    };
+  }
+}
+
+module.exports = { Tour };

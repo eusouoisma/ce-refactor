@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, FormControl, InputLabel, Button, IconButton, Divider } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../utils/env';
+import { apiFetch } from '../../utils/api';
 
 const newVariant = () => ({
   pricingType: 'person', priceAdult: '', priceHalf: '', priceNet: '', priceBrazilian: '',
@@ -14,50 +14,62 @@ const newVariant = () => ({
 
 export default function ProductInput() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ type: 'regular', category: 'atividade', productName: '', duration: '', variants: [newVariant()] });
+  const location = useLocation();
+  const isAdicionais = location.pathname === '/cadastrar-adicional';
+
+  const [form, setForm] = useState({
+    type: isAdicionais ? 'adicional' : 'regular',
+    category: isAdicionais ? 'adicional' : 'atividade',
+    productName: '',
+    duration: '',
+    variants: [newVariant()],
+  });
 
   function setVariant(i, f, v) {
     setForm(p => ({ ...p, variants: p.variants.map((vr, idx) => idx === i ? { ...vr, [f]: v } : vr) }));
   }
 
   async function handleSubmit(andNew = false) {
-    const res = await fetch(`${API_URL}/products/create`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await apiFetch('/products/create', {
+      method: 'POST',
       body: JSON.stringify(form),
     });
     const data = await res.json();
-    if (data.error) { Swal.fire('Erro', data.message || 'Erro', 'error'); }
-    else if (andNew) { setForm({ ...form, productName: '', variants: [newVariant()] }); }
-    else { navigate('/listar-produtos'); }
+    if (data.error) {
+      Swal.fire('Erro', data.message || 'Erro', 'error');
+    } else if (andNew) {
+      setForm(p => ({ ...p, productName: '', variants: [newVariant()] }));
+    } else {
+      navigate(isAdicionais ? '/listar-adicionais' : '/listar-produtos');
+    }
   }
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>Cadastrar Produto</Typography>
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+        {isAdicionais ? 'Cadastrar Adicional' : 'Cadastrar Produto'}
+      </Typography>
       <Card>
         <CardContent>
           <Grid container spacing={2}>
-            <Grid item xs={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Tipo</InputLabel>
-                <Select value={form.type} label="Tipo" onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
-                  <MenuItem value="regular">Regular</MenuItem>
-                  <MenuItem value="privativo">Privativo</MenuItem>
-                  <MenuItem value="show/evento">Show/Evento</MenuItem>
-                </Select>
-              </FormControl>
+            {!isAdicionais && (
+              <Grid item xs={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tipo</InputLabel>
+                  <Select value={form.type} label="Tipo" onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
+                    <MenuItem value="regular">Regular</MenuItem>
+                    <MenuItem value="privativo">Privativo</MenuItem>
+                    <MenuItem value="show/evento">Show/Evento</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            <Grid item xs={isAdicionais ? 8 : 5}>
+              <TextField fullWidth size="small" label="Nome" value={form.productName} onChange={e => setForm(p => ({ ...p, productName: e.target.value }))} />
             </Grid>
-            <Grid item xs={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Categoria</InputLabel>
-                <Select value={form.category} label="Categoria" onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
-                  <MenuItem value="atividade">Atividade</MenuItem>
-                  <MenuItem value="adicional">Adicional</MenuItem>
-                </Select>
-              </FormControl>
+            <Grid item xs={isAdicionais ? 4 : 2}>
+              <TextField fullWidth size="small" label="Duração" value={form.duration} onChange={e => setForm(p => ({ ...p, duration: e.target.value }))} />
             </Grid>
-            <Grid item xs={4}><TextField fullWidth size="small" label="Nome" value={form.productName} onChange={e => setForm(p => ({ ...p, productName: e.target.value }))} /></Grid>
-            <Grid item xs={2}><TextField fullWidth size="small" label="Duração" value={form.duration} onChange={e => setForm(p => ({ ...p, duration: e.target.value }))} /></Grid>
           </Grid>
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle1">Variantes</Typography>
@@ -80,13 +92,17 @@ export default function ProductInput() {
                     <Grid item xs={2}><TextField fullWidth size="small" label="NET" type="number" value={v.priceNet} onChange={e => setVariant(i, 'priceNet', e.target.value)} /></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="Brasileiro" type="number" value={v.priceBrazilian} onChange={e => setVariant(i, 'priceBrazilian', e.target.value)} /></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="Cortesia" type="number" value={v.priceFree} onChange={e => setVariant(i, 'priceFree', e.target.value)} /></Grid>
+                    <Grid item xs={12}><Divider><Typography variant="caption" color="text.secondary">Alta Temporada</Typography></Divider></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="Adulto Alta" type="number" value={v.priceAdultHighSeason} onChange={e => setVariant(i, 'priceAdultHighSeason', e.target.value)} /></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="Meia Alta" type="number" value={v.priceHalfHighSeason} onChange={e => setVariant(i, 'priceHalfHighSeason', e.target.value)} /></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="NET Alta" type="number" value={v.priceNetHighSeason} onChange={e => setVariant(i, 'priceNetHighSeason', e.target.value)} /></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Brasileiro Alta" type="number" value={v.priceBrazilianHighSeason} onChange={e => setVariant(i, 'priceBrazilianHighSeason', e.target.value)} /></Grid>
+                    <Grid item xs={2}><TextField fullWidth size="small" label="Cortesia Alta" type="number" value={v.priceFreeHighSeason} onChange={e => setVariant(i, 'priceFreeHighSeason', e.target.value)} /></Grid>
                   </>
                 ) : (
                   <>
                     <Grid item xs={2}><TextField fullWidth size="small" label="Preço Grupo" type="number" value={v.priceGroup} onChange={e => setVariant(i, 'priceGroup', e.target.value)} /></Grid>
+                    <Grid item xs={12}><Divider><Typography variant="caption" color="text.secondary">Alta Temporada</Typography></Divider></Grid>
                     <Grid item xs={2}><TextField fullWidth size="small" label="Grupo Alta" type="number" value={v.priceGroupHighSeason} onChange={e => setVariant(i, 'priceGroupHighSeason', e.target.value)} /></Grid>
                   </>
                 )}
@@ -102,7 +118,7 @@ export default function ProductInput() {
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
             <Button variant="contained" onClick={() => handleSubmit(false)}>Salvar</Button>
             <Button variant="outlined" onClick={() => handleSubmit(true)}>Salvar e Criar Outro</Button>
-            <Button variant="text" onClick={() => navigate('/listar-produtos')}>Cancelar</Button>
+            <Button variant="text" onClick={() => navigate(isAdicionais ? '/listar-adicionais' : '/listar-produtos')}>Cancelar</Button>
           </Box>
         </CardContent>
       </Card>

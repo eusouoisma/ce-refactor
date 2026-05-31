@@ -1,61 +1,138 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem,
-  FormControl, InputLabel, Checkbox, FormControlLabel, Button, Autocomplete,
-  Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead,
-  TableRow, TableCell, TableBody, Chip,
+  Box, Typography, TextField, Autocomplete,
+  Button, Checkbox, FormControlLabel,
+  ToggleButton, ToggleButtonGroup,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  IconButton, Divider, Chip,
+  Table, TableHead, TableRow, TableCell, TableBody,
 } from '@mui/material';
 import { NumericFormat } from 'react-number-format';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../utils/env';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
+import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
-import { calcVariantValue, selectVariant } from '../../utils/functions';
+import { calcVariantValue, selectVariant, formatAdicional } from '../../utils/functions';
+import { COLORS } from '../../utils/colors';
 
 const PAX_TYPES = [
-  { key: 'paxAdult', label: 'Adulto' },
-  { key: 'paxHalf', label: 'Meia' },
-  { key: 'paxFree', label: 'Cortesia' },
-  { key: 'paxNet', label: 'NET' },
+  { key: 'paxAdult',     label: 'Adulto' },
+  { key: 'paxHalf',      label: 'Meia' },
+  { key: 'paxFree',      label: 'Cortesia' },
+  { key: 'paxNet',       label: 'NET' },
   { key: 'paxBrazilian', label: 'Brasileiro' },
 ];
 
+function Section({ label, color = COLORS.primary, children }) {
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Box sx={{ width: 3, height: 14, bgcolor: color, borderRadius: 2, flexShrink: 0 }} />
+        <Typography sx={{
+          fontSize: '0.7rem', fontWeight: 700, color: COLORS.textSecondary,
+          textTransform: 'uppercase', letterSpacing: '0.08em',
+        }}>
+          {label}
+        </Typography>
+      </Box>
+      {children}
+    </Box>
+  );
+}
+
+function PaxCounter({ label, value, onChange }) {
+  const [localVal, setLocalVal] = useState(String(value));
+  useEffect(() => { setLocalVal(String(value)); }, [value]);
+
+  function commit(raw) {
+    const n = parseInt(raw);
+    onChange(isNaN(n) || n < 0 ? 0 : n);
+  }
+
+  return (
+    <Box sx={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
+      py: 1.75, px: 1.25, borderRadius: 2,
+      border: `1.5px solid ${value > 0 ? COLORS.primary + '55' : COLORS.border}`,
+      bgcolor: value > 0 ? COLORS.primaryAlpha : '#fafafa',
+      transition: 'all 0.15s',
+      flex: 1, minWidth: 0,
+    }}>
+      <Typography sx={{ fontSize: '0.67rem', fontWeight: 700, color: COLORS.textSecondary, letterSpacing: '0.05em' }}>
+        {label.toUpperCase()}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+        <IconButton size="small" onClick={() => onChange(Math.max(0, value - 1))}
+          sx={{ width: 24, height: 24, bgcolor: 'rgba(0,0,0,0.07)', '&:hover': { bgcolor: 'rgba(0,0,0,0.13)' } }}>
+          <RemoveRoundedIcon sx={{ fontSize: 13 }} />
+        </IconButton>
+        <Box
+          component="input"
+          value={localVal}
+          onChange={e => setLocalVal(e.target.value)}
+          onBlur={e => commit(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && commit(localVal)}
+          sx={{
+            width: 36, textAlign: 'center', border: 'none', outline: 'none',
+            fontWeight: 800, fontSize: '1.1rem',
+            color: value > 0 ? COLORS.primary : COLORS.textPrimary,
+            background: 'transparent', cursor: 'text', fontFamily: 'inherit',
+            '&::-webkit-inner-spin-button': { display: 'none' },
+            '&::-webkit-outer-spin-button': { display: 'none' },
+          }}
+        />
+        <IconButton size="small" onClick={() => onChange(value + 1)}
+          sx={{ width: 24, height: 24, bgcolor: 'rgba(0,0,0,0.07)', '&:hover': { bgcolor: 'rgba(0,0,0,0.13)' } }}>
+          <AddRoundedIcon sx={{ fontSize: 13 }} />
+        </IconButton>
+      </Box>
+    </Box>
+  );
+}
+
 export default function TourUpdate() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const id = params.get('id');
+  const [searchParams] = useSearchParams();
+  const id = searchParams.get('id');
   const { userName, userPermissions } = useStore();
   const perm = parseInt(userPermissions);
+
   const [form, setForm] = useState(null);
-  const [platforms, setPlatforms] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [languages, setLanguages] = useState([]);
-  const [statuses, setStatuses] = useState([]);
-  const [currencies, setCurrencies] = useState([]);
-  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [platforms, setPlatforms]             = useState([]);
+  const [products, setProducts]               = useState([]);
+  const [languages, setLanguages]             = useState([]);
+  const [statuses, setStatuses]               = useState([]);
+  const [currencies, setCurrencies]           = useState([]);
+  const [paymentMethods, setPaymentMethods]   = useState([]);
   const [paymentStatuses, setPaymentStatuses] = useState([]);
-  const [locals, setLocals] = useState([]);
-  const [guides, setGuides] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [countries, setCountries] = useState([]);
+  const [locals, setLocals]                   = useState([]);
+  const [guides, setGuides]                   = useState([]);
+  const [customers, setCustomers]             = useState([]);
+  const [countries, setCountries]             = useState([]);
   const [commissionModal, setCommissionModal] = useState(false);
+  // Começa true para não sobrescrever o valor carregado do banco
+  const [blockUpdateTotalValue, setBlockUpdateTotalValue]         = useState(true);
+  const [blockUpdateNumberOfGroups, setBlockUpdateNumberOfGroups] = useState(true);
+  const [durationManuallyEdited, setDurationManuallyEdited]       = useState(false);
 
   useEffect(() => {
-    const urls = [
-      `${API_URL}/settings/platforms`,
-      `${API_URL}/products/list-all`,
-      `${API_URL}/settings/languages`,
-      `${API_URL}/settings/status`,
-      `${API_URL}/settings/currencies`,
-      `${API_URL}/settings/payment-methods`,
-      `${API_URL}/settings/payment-status`,
-      `${API_URL}/settings/locals`,
-      `${API_URL}/settings/guides`,
-      `${API_URL}/customers/list-grouped`,
-      `${API_URL}/settings/countries`,
-      `${API_URL}/tours/list-by-id?tour_id=${id}`,
+    const paths = [
+      '/settings/platforms',
+      '/products/list-all',
+      '/settings/languages',
+      '/settings/status',
+      '/settings/currencies',
+      '/settings/payment-methods',
+      '/settings/payment-status',
+      '/settings/locals',
+      '/settings/guides',
+      '/customers/list-grouped',
+      '/settings/countries',
+      `/tours/list-by-id?tour_id=${id}`,
     ];
-    Promise.all(urls.map(u => fetch(u).then(r => r.json())))
+    Promise.all(paths.map(p => apiFetch(p).then(r => r.json())))
       .then(([pl, pr, la, st, cu, pm, ps, lo, gu, cust, co, tour]) => {
         setPlatforms(pl.map ? pl.map(x => x.value) : []);
         setProducts(pr.map ? pr : []);
@@ -71,19 +148,82 @@ export default function TourUpdate() {
         if (tour && !tour.error) {
           setForm({
             ...tour,
-            ceGuide: tour.ceGuide ? tour.ceGuide.split(',').filter(Boolean) : [],
+            adicional: formatAdicional(tour.adicional),
+            tourDate: tour.tourDate ? String(tour.tourDate).split('T')[0] : '',
+            ceGuide: tour.ceGuide ? tour.ceGuide.split(',').map(s => s.trim()).filter(Boolean) : [],
             country: tour.country ? tour.country.split(', ').filter(Boolean) : [],
             isHighSeason: tour.isHighSeason == 1,
             commissioned: tour.commissioned == 1,
             comissionPaid: tour.comissionPaid == 1,
+            comissionByPercentage: tour.comissionByPercentage == 1,
+            comissionPercentage: tour.comissionPercentage || '',
             changeRequests: tour.changeRequests || [],
           });
         }
       });
   }, [id]);
 
+  // Auto-calcula numberOfGroups para privativo
+  useEffect(() => {
+    if (!form) return;
+    if (form.type === 'privativo' && !blockUpdateNumberOfGroups) {
+      const groups = Math.ceil((parseInt(form.paxAdult) || 0) / 30) || 1;
+      setForm(p => ({ ...p, numberOfGroups: groups }));
+    }
+  }, [form?.paxAdult, form?.type, blockUpdateNumberOfGroups]);
+
+  // Auto-calcula totalValue
+  useEffect(() => {
+    if (!form || blockUpdateTotalValue) return;
+    if (form.type === 'show/evento') return;
+
+    const activityVariants = products.filter(p => p.category !== 'adicional' && p.name === form.activity && p.variantId);
+    if (activityVariants.length === 0) return;
+
+    const paxTotal = form.type === 'privativo'
+      ? (parseInt(form.paxAdult) || 0)
+      : (parseInt(form.paxAdult)||0) + (parseInt(form.paxHalf)||0) + (parseInt(form.paxNet)||0) + (parseInt(form.paxBrazilian)||0);
+
+    const variant = selectVariant(activityVariants, paxTotal);
+    let value = calcVariantValue(variant, form.paxAdult, form.paxHalf, form.paxFree, form.paxNet, form.paxBrazilian, form.numberOfGroups, form.isHighSeason);
+
+    if (form.adicional) {
+      const addVariants = products.filter(p => p.category === 'adicional' && p.name === form.adicional && p.variantId);
+      const addVariant = selectVariant(addVariants, paxTotal);
+      value += calcVariantValue(addVariant, form.paxAdult, form.paxHalf, form.paxFree, form.paxNet, form.paxBrazilian, form.numberOfGroups, form.isHighSeason);
+    }
+
+    setForm(p => ({ ...p, totalValue: String(value) }));
+  }, [form?.type, form?.activity, form?.adicional, form?.paxAdult, form?.paxHalf, form?.paxFree, form?.paxNet, form?.paxBrazilian, form?.numberOfGroups, form?.isHighSeason, products, blockUpdateTotalValue]);
+
+  // Calcula comissão por percentual
+  useEffect(() => {
+    if (!form) return;
+    if (form.comissionByPercentage && form.comissionPercentage && form.totalValue) {
+      const price = (parseFloat(form.comissionPercentage) / 100) * parseFloat(form.totalValue);
+      setForm(p => ({ ...p, comissionPrice: String(isNaN(price) ? '' : price) }));
+    }
+  }, [form?.comissionByPercentage, form?.comissionPercentage, form?.totalValue]);
+
   function set(field, value) {
     setForm(p => ({ ...p, [field]: value }));
+  }
+
+  function handleTypeChange(_, v) {
+    if (!v) return;
+    setForm(p => ({
+      ...p,
+      type: v,
+      activity: '',
+      adicional: '',
+      duration: '',
+      paxAdult: 0, paxHalf: 0, paxFree: 0, paxNet: 0, paxBrazilian: 0,
+      numberOfGroups: 0,
+      totalValue: '',
+    }));
+    setBlockUpdateTotalValue(false);
+    setBlockUpdateNumberOfGroups(false);
+    setDurationManuallyEdited(false);
   }
 
   async function handleSubmit() {
@@ -93,267 +233,413 @@ export default function TourUpdate() {
       country: Array.isArray(form.country) ? form.country.join(', ') : form.country,
       lastEditBy: userName,
     };
-    const res = await fetch(`${API_URL}/tours/update?id=${id}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await apiFetch(`/tours/update?id=${id}`, {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (data.error) {
       Swal.fire('Erro', data.message || 'Erro ao salvar', 'error');
     } else {
+      await Swal.fire({ icon: 'success', title: 'Tour salvo com sucesso!' });
       navigate('/listar-tours');
     }
   }
 
   async function deleteCommission() {
     if (!form.commissionId) return;
-    await fetch(`${API_URL}/comissions/delete?id=${form.commissionId}`);
+    await apiFetch(`/comissions/delete?id=${form.commissionId}`);
     set('commissioned', false);
     set('commissionId', null);
   }
 
-  if (!form) return <Box sx={{ p: 3 }}>Carregando...</Box>;
+  if (!form) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <Typography sx={{ color: COLORS.textSecondary }}>Carregando...</Typography>
+      </Box>
+    );
+  }
 
-  const uniqueActivities = [...new Set(products.filter(p => p.category !== 'adicional').map(p => p.name))];
-  const uniqueAdditionals = [...new Set(products.filter(p => p.category === 'adicional').map(p => p.name))];
-  const clientContacts = customers.find(c => c.name === form.client)?.contacts || [];
+  const uniqueActivities = [...new Set(
+    products.filter(p => p.category !== 'adicional' && p.type === form.type).map(p => p.name)
+  )];
+  const uniqueAdditionals = [...new Set(
+    products.filter(p => p.category === 'adicional').map(p => p.name)
+  )];
+  const clientContacts  = customers.find(c => c.name === form.client)?.contacts || [];
+  const totalPaxCount   = PAX_TYPES.reduce((s, p) => s + (parseInt(form[p.key]) || 0), 0);
+  const isShowEvento    = form.type === 'show/evento';
+  const isPrivativo     = form.type === 'privativo';
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>Editar Tour #{id}</Typography>
-      <Card>
-        <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Tipo</InputLabel>
-                <Select value={form.type||''} label="Tipo" onChange={e => set('type', e.target.value)}>
-                  <MenuItem value="regular">Regular</MenuItem>
-                  <MenuItem value="privativo">Privativo</MenuItem>
-                  <MenuItem value="show/evento">Show/Evento</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth size="small" label="Nº da Reserva" value={form.orderRef||''}
-                onChange={e => set('orderRef', e.target.value)} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <FormControlLabel control={<Checkbox checked={!!form.isHighSeason} onChange={e => set('isHighSeason', e.target.checked)} />} label="Alta Temporada" />
-            </Grid>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-            <Grid item xs={12} sm={4}>
-              <Autocomplete freeSolo options={platforms} value={form.platform||''}
-                onInputChange={(_, v) => set('platform', v)}
-                renderInput={p => <TextField {...p} size="small" label="Plataforma" />} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Autocomplete freeSolo options={uniqueActivities} value={form.activity||''}
-                onInputChange={(_, v) => set('activity', v)}
+      {/* ── Área rolável ── */}
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 3.5 }}>
+
+        {/* Cabeçalho */}
+        <Box sx={{ mb: 3 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.3rem', color: COLORS.textPrimary, lineHeight: 1.2 }}>
+            Editar Tour
+          </Typography>
+        </Box>
+
+        {/* Seletor de tipo */}
+        <Box sx={{ mb: 3.5 }}>
+          <ToggleButtonGroup
+            value={form.type} exclusive onChange={handleTypeChange} size="small"
+            sx={{
+              '& .MuiToggleButton-root': {
+                px: 2.5, py: 0.7,
+                fontSize: '0.82rem', fontWeight: 600,
+                fontFamily: '"Poppins", sans-serif',
+                color: COLORS.textSecondary,
+                borderColor: COLORS.border,
+                textTransform: 'none',
+                transition: 'all 0.15s',
+                '&.Mui-selected': {
+                  bgcolor: COLORS.primary, color: '#fff', borderColor: COLORS.primary,
+                  '&:hover': { bgcolor: COLORS.primaryDark },
+                },
+                '&:not(.Mui-selected):hover': { bgcolor: COLORS.primaryAlpha, color: COLORS.primary },
+              },
+            }}
+          >
+            <ToggleButton value="regular">Regular</ToggleButton>
+            <ToggleButton value="privativo">Privativo</ToggleButton>
+            <ToggleButton value="show/evento">Show / Evento</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+
+          {/* ── Identificação + Data e Local ── */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
+
+            <Section label="Identificação" color={COLORS.primary}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                  <TextField fullWidth size="small" label="Nº da Reserva"
+                    value={form.orderRef || ''} onChange={e => set('orderRef', e.target.value)} />
+                  <Autocomplete freeSolo options={statuses} value={form.status || ''}
+                    onInputChange={(_, v) => set('status', v)}
+                    renderInput={p => <TextField {...p} size="small" label="Status" />} />
+                </Box>
+                <Autocomplete freeSolo options={platforms} value={form.platform || ''}
+                  onInputChange={(_, v) => set('platform', v)}
+                  renderInput={p => <TextField {...p} size="small" label="Plataforma" />} />
+                {form.platform === 'Email' && (
+                  <TextField fullWidth size="small" label="Assunto do Email"
+                    value={form.emailSubject || ''} onChange={e => set('emailSubject', e.target.value)} />
+                )}
+                <FormControlLabel
+                  control={<Checkbox checked={!!form.isHighSeason} size="small"
+                    onChange={e => set('isHighSeason', e.target.checked)} />}
+                  label={<Typography sx={{ fontSize: '0.83rem', fontWeight: 500 }}>Alta Temporada</Typography>}
+                  sx={{ m: 0 }}
+                />
+              </Box>
+            </Section>
+
+            <Section label="Data e Local" color="#fdab3d">
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                  <TextField fullWidth size="small" label="Data do Tour" type="date"
+                    value={form.tourDate || ''} onChange={e => set('tourDate', e.target.value)}
+                    InputLabelProps={{ shrink: true }} />
+                  <TextField fullWidth size="small" label="Horário" type="time"
+                    value={form.tourHour || ''} onChange={e => set('tourHour', e.target.value)}
+                    InputLabelProps={{ shrink: true }} />
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                  <TextField fullWidth size="small" label="Duração"
+                    value={form.duration || ''} onChange={e => { setDurationManuallyEdited(true); set('duration', e.target.value); }} />
+                  <Autocomplete freeSolo options={locals} value={form.local || ''}
+                    onInputChange={(_, v) => set('local', v)}
+                    renderInput={p => <TextField {...p} size="small" label="Local" />} />
+                </Box>
+                <Autocomplete multiple options={countries}
+                  value={Array.isArray(form.country) ? form.country : []}
+                  onChange={(_, v) => set('country', v)}
+                  renderInput={p => <TextField {...p} size="small" label="País(es)" />} />
+              </Box>
+            </Section>
+
+          </Box>
+
+          <Divider />
+
+          {/* ── Atividade ── */}
+          <Section label="Atividade" color="#ff642e">
+            <Box sx={{ display: 'grid', gridTemplateColumns: isShowEvento ? '1fr 1fr' : '1fr 1fr 1fr', gap: 1.75 }}>
+              <Autocomplete freeSolo options={uniqueActivities} value={form.activity || ''}
+                onInputChange={(_, v) => {
+                  set('activity', v);
+                  if (!durationManuallyEdited) {
+                    const prod = products.find(p => p.name === v && p.category !== 'adicional');
+                    if (prod?.duration) set('duration', prod.duration);
+                  }
+                }}
                 renderInput={p => <TextField {...p} size="small" label="Atividade" />} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Autocomplete freeSolo options={uniqueAdditionals} value={form.adicional||''}
+              <Autocomplete freeSolo options={uniqueAdditionals} value={form.adicional || ''}
                 onInputChange={(_, v) => set('adicional', v)}
                 renderInput={p => <TextField {...p} size="small" label="Adicional" />} />
-            </Grid>
-
-            {form.platform === 'Email' && (
-              <Grid item xs={12}>
-                <TextField fullWidth size="small" label="Assunto do Email" value={form.emailSubject||''}
-                  onChange={e => set('emailSubject', e.target.value)} />
-              </Grid>
-            )}
-
-            <Grid item xs={12} sm={3}>
-              <TextField fullWidth size="small" label="Data do Tour" type="date"
-                value={form.tourDate ? String(form.tourDate).split('T')[0] : ''}
-                onChange={e => set('tourDate', e.target.value)} InputLabelProps={{ shrink: true }} />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField fullWidth size="small" label="Hora" type="time"
-                value={form.tourHour||''} onChange={e => set('tourHour', e.target.value)}
-                InputLabelProps={{ shrink: true }} />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField fullWidth size="small" label="Duração" value={form.duration||''}
-                onChange={e => set('duration', e.target.value)} />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Autocomplete freeSolo options={locals} value={form.local||''}
-                onInputChange={(_, v) => set('local', v)}
-                renderInput={p => <TextField {...p} size="small" label="Local" />} />
-            </Grid>
-
-            <Grid item xs={12} sm={4}>
-              <Autocomplete freeSolo options={languages} value={form.language||''}
-                onInputChange={(_, v) => set('language', v)}
-                renderInput={p => <TextField {...p} size="small" label="Idioma" />} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Autocomplete freeSolo options={statuses} value={form.status||''}
-                onInputChange={(_, v) => set('status', v)}
-                renderInput={p => <TextField {...p} size="small" label="Status" />} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Autocomplete multiple options={countries}
-                value={Array.isArray(form.country) ? form.country : []}
-                onChange={(_, v) => set('country', v)}
-                renderInput={p => <TextField {...p} size="small" label="País(es)" />} />
-            </Grid>
-
-            {PAX_TYPES.map(pax => (
-              <Grid item xs={6} sm={2} key={pax.key}>
-                <TextField fullWidth size="small" label={pax.label} type="number"
-                  value={form[pax.key]||0} onChange={e => set(pax.key, parseInt(e.target.value)||0)} />
-              </Grid>
-            ))}
-
-            <Grid item xs={12} sm={3}>
-              <Autocomplete freeSolo options={currencies} value={form.currency||''}
-                onInputChange={(_, v) => set('currency', v)}
-                renderInput={p => <TextField {...p} size="small" label="Moeda" />} />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Autocomplete freeSolo options={paymentMethods} value={form.paymentMethod||''}
-                onInputChange={(_, v) => set('paymentMethod', v)}
-                renderInput={p => <TextField {...p} size="small" label="Método de Pagamento" />} />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Autocomplete freeSolo options={paymentStatuses} value={form.paymentStatus||''}
-                onInputChange={(_, v) => set('paymentStatus', v)}
-                renderInput={p => <TextField {...p} size="small" label="Status de Pagamento" />} />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <NumericFormat
-                customInput={TextField} fullWidth size="small" label="Valor Total"
-                thousandSeparator="." decimalSeparator="," decimalScale={2}
-                value={form.totalValue||''}
-                onValueChange={v => set('totalValue', v.value)}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={4}>
-              <Autocomplete freeSolo options={customers.map(c => c.name)} value={form.client||''}
-                onInputChange={(_, v) => set('client', v)}
-                renderInput={p => <TextField {...p} size="small" label="Cliente" />} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Autocomplete freeSolo options={clientContacts.map(c => c.contactName||'')} value={form.clientName||''}
-                onInputChange={(_, v) => set('clientName', v)}
-                renderInput={p => <TextField {...p} size="small" label="Nome do Cliente" />} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth size="small" label="Contato do Cliente" value={form.clientContact||''}
-                onChange={e => set('clientContact', e.target.value)} />
-            </Grid>
-
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth size="small" label="Guia Acompanhante" value={form.companionName||''}
-                onChange={e => set('companionName', e.target.value)} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth size="small" label="Contato Guia" value={form.companionContact||''}
-                onChange={e => set('companionContact', e.target.value)} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Autocomplete multiple options={guides}
-                value={Array.isArray(form.ceGuide) ? form.ceGuide : []}
-                onChange={(_, v) => set('ceGuide', v)}
-                renderInput={p => <TextField {...p} size="small" label="Guias CE" />} />
-            </Grid>
-
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={<Checkbox checked={!!form.commissioned}
-                  onChange={e => {
-                    set('commissioned', e.target.checked);
-                    if (e.target.checked) setCommissionModal(true);
-                  }}
-                />}
-                label="Comissionado"
-              />
-              {form.commissioned && form.commissionId && (
-                <Button color="error" size="small" onClick={deleteCommission}>Excluir Comissão</Button>
+              {!isShowEvento && (
+                <Autocomplete freeSolo options={languages} value={form.language || ''}
+                  onInputChange={(_, v) => set('language', v)}
+                  renderInput={p => <TextField {...p} size="small" label="Idioma" />} />
               )}
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField fullWidth multiline rows={3} size="small" label="Observações"
-                value={form.comments||''} onChange={e => set('comments', e.target.value)} />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth multiline rows={3} size="small" label="Histórico da Conversa"
-                value={form.conversationHistory||''} onChange={e => set('conversationHistory', e.target.value)} />
-            </Grid>
-          </Grid>
-
-          {/* Change Requests */}
-          {form.changeRequests && form.changeRequests.length > 0 && (
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h6">Change Requests</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Campo</TableCell>
-                    <TableCell>Valor Antigo</TableCell>
-                    <TableCell>Novo Valor</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {form.changeRequests.map((cr, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{cr.name}</TableCell>
-                      <TableCell>{cr.oldValue}</TableCell>
-                      <TableCell>{cr.newValue}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             </Box>
+          </Section>
+
+          {/* ── Participantes (oculto para show/evento) ── */}
+          {!isShowEvento && (
+            <>
+              <Divider />
+              <Section label="Participantes" color="#a25ddc">
+                <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap' }}>
+
+                  {!isPrivativo && PAX_TYPES.map(pax => (
+                    <PaxCounter key={pax.key} label={pax.label}
+                      value={parseInt(form[pax.key]) || 0}
+                      onChange={v => set(pax.key, v)} />
+                  ))}
+
+                  {isPrivativo && (
+                    <>
+                      <PaxCounter label="Nº de Pax" value={parseInt(form.paxAdult) || 0}
+                        onChange={v => set('paxAdult', v)} />
+                      <Box sx={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
+                        py: 1.75, px: 1.25, borderRadius: 2,
+                        border: `1.5px solid ${COLORS.border}`,
+                        bgcolor: '#fafafa',
+                        flex: 1, minWidth: 0,
+                      }}>
+                        <Typography sx={{ fontSize: '0.67rem', fontWeight: 700, color: COLORS.textSecondary, letterSpacing: '0.05em' }}>
+                          GRUPOS
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <IconButton size="small"
+                            onClick={() => { setBlockUpdateNumberOfGroups(true); set('numberOfGroups', Math.max(1, (form.numberOfGroups || 0) - 1)); }}
+                            sx={{ width: 24, height: 24, bgcolor: 'rgba(0,0,0,0.07)', '&:hover': { bgcolor: 'rgba(0,0,0,0.13)' } }}>
+                            <RemoveRoundedIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                          <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', minWidth: 26, textAlign: 'center', color: COLORS.textPrimary }}>
+                            {form.numberOfGroups || 0}
+                          </Typography>
+                          <IconButton size="small"
+                            onClick={() => { setBlockUpdateNumberOfGroups(true); set('numberOfGroups', (form.numberOfGroups || 0) + 1); }}
+                            sx={{ width: 24, height: 24, bgcolor: 'rgba(0,0,0,0.07)', '&:hover': { bgcolor: 'rgba(0,0,0,0.13)' } }}>
+                            <AddRoundedIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </Box>
+                        <Typography sx={{ fontSize: '0.61rem', color: COLORS.textSecondary, fontStyle: 'italic' }}>
+                          auto-calculado
+                        </Typography>
+                      </Box>
+                    </>
+                  )}
+                </Box>
+
+                {!isPrivativo && totalPaxCount > 0 && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Chip label={`${totalPaxCount} pax no total`} size="small"
+                      sx={{ bgcolor: '#a25ddc18', color: '#7b3fad', fontWeight: 700, fontSize: '0.74rem', border: '1px solid #a25ddc44' }} />
+                  </Box>
+                )}
+              </Section>
+            </>
           )}
 
-          <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            <Button variant="contained" onClick={handleSubmit} disabled={perm === 5}>Salvar</Button>
-            <Button variant="text" onClick={() => navigate('/listar-tours')}>Cancelar</Button>
-          </Box>
-        </CardContent>
-      </Card>
+          <Divider />
 
+          {/* ── Financeiro ── */}
+          <Section label="Financeiro" color="#00c875">
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr', gap: 1.75, alignItems: 'start' }}>
+              <Autocomplete freeSolo options={currencies} value={form.currency || ''}
+                onInputChange={(_, v) => set('currency', v)}
+                renderInput={p => <TextField {...p} size="small" label="Moeda" />} />
+              <Autocomplete freeSolo options={paymentMethods} value={form.paymentMethod || ''}
+                onInputChange={(_, v) => set('paymentMethod', v)}
+                renderInput={p => <TextField {...p} size="small" label="Método de Pagamento" />} />
+              <Autocomplete freeSolo options={paymentStatuses} value={form.paymentStatus || ''}
+                onInputChange={(_, v) => set('paymentStatus', v)}
+                renderInput={p => <TextField {...p} size="small" label="Status do Pagamento" />} />
+              <NumericFormat
+                customInput={TextField} fullWidth
+                label={isShowEvento ? 'Valor Total (manual)' : 'Valor Total'}
+                thousandSeparator="." decimalSeparator="," decimalScale={2}
+                value={form.totalValue || ''}
+                onValueChange={(v, sourceInfo) => { if (sourceInfo.event) setBlockUpdateTotalValue(true); set('totalValue', v.value); }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    fontSize: '1.05rem', fontWeight: 700, color: COLORS.textPrimary,
+                    '& fieldset': {
+                      borderColor: form.totalValue ? '#00c87566' : undefined,
+                      borderWidth: form.totalValue ? 1.5 : 1,
+                    },
+                  },
+                }}
+              />
+            </Box>
+          </Section>
+
+          <Divider />
+
+          {/* ── Cliente e Guias ── */}
+          <Section label="Cliente e Guias" color="#0086c0">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.75 }}>
+                <Autocomplete freeSolo options={customers.map(c => c.name)} value={form.client || ''}
+                  onInputChange={(_, v) => set('client', v)}
+                  renderInput={p => <TextField {...p} size="small" label="Cliente" />} />
+                <Autocomplete freeSolo
+                  options={clientContacts.map(c => c.contactName || '')}
+                  value={form.clientName || ''}
+                  onInputChange={(_, v) => {
+                    set('clientName', v);
+                    const contact = clientContacts.find(c => c.contactName === v);
+                    if (contact) set('clientContact', contact.contactEmail || '');
+                  }}
+                  renderInput={p => <TextField {...p} size="small" label="Nome do Cliente" />} />
+                <TextField fullWidth size="small" label="Contato do Cliente"
+                  value={form.clientContact || ''} onChange={e => set('clientContact', e.target.value)} />
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.75 }}>
+                <TextField fullWidth size="small" label="Nome do Guia"
+                  value={form.companionName || ''} onChange={e => set('companionName', e.target.value)} />
+                <TextField fullWidth size="small" label="Contato do Guia"
+                  value={form.companionContact || ''} onChange={e => set('companionContact', e.target.value)} />
+                <Autocomplete multiple options={guides}
+                  value={Array.isArray(form.ceGuide) ? form.ceGuide : []}
+                  onChange={(_, v) => set('ceGuide', v)}
+                  renderInput={p => <TextField {...p} size="small" label="Guia do CE" />} />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox checked={!!form.commissioned} size="small"
+                      onChange={e => { set('commissioned', e.target.checked); if (e.target.checked) setCommissionModal(true); }} />
+                  }
+                  label={<Typography sx={{ fontSize: '0.83rem', fontWeight: 500 }}>Comissionado</Typography>}
+                  sx={{ m: 0 }}
+                />
+                {form.commissioned && form.comissionersName && (
+                  <Chip label={form.comissionersName} size="small"
+                    onClick={() => setCommissionModal(true)}
+                    sx={{ fontSize: '0.72rem', height: 22, cursor: 'pointer', bgcolor: '#fdab3d22', color: '#9a6200', border: '1px solid #fdab3d55' }} />
+                )}
+              </Box>
+            </Box>
+          </Section>
+
+          <Divider />
+
+          {/* ── Notas ── */}
+          <Section label="Notas" color="#676879">
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.75 }}>
+              <TextField fullWidth multiline rows={4} size="small" label="Observações"
+                value={form.comments || ''} onChange={e => set('comments', e.target.value)} />
+              <TextField fullWidth multiline rows={4} size="small" label="Histórico da Conversa"
+                value={form.conversationHistory || ''} onChange={e => set('conversationHistory', e.target.value)} />
+            </Box>
+          </Section>
+
+          {/* ── Change Requests ── */}
+          {form.changeRequests && form.changeRequests.length > 0 && (
+            <>
+              <Divider />
+              <Section label="Change Requests" color="#e2445c">
+                <Box sx={{ border: `1px solid ${COLORS.border}`, borderRadius: 1.5, overflow: 'hidden' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: COLORS.tableHeaderBg }}>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: COLORS.tableHeaderText }}>Campo</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: COLORS.tableHeaderText }}>Valor Antigo</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: COLORS.tableHeaderText }}>Novo Valor</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {form.changeRequests.map((cr, i) => (
+                        <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
+                          <TableCell sx={{ fontSize: '0.8rem' }}>{cr.name}</TableCell>
+                          <TableCell sx={{ fontSize: '0.8rem', color: COLORS.textSecondary }}>{cr.oldValue}</TableCell>
+                          <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, color: COLORS.primary }}>{cr.newValue}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </Section>
+            </>
+          )}
+
+        </Box>
+      </Box>
+
+      {/* ── Footer fixo ── */}
+      <Box sx={{
+        flexShrink: 0, borderTop: `1px solid ${COLORS.border}`,
+        px: 3.5, py: 2, display: 'flex', gap: 1.5, alignItems: 'center',
+        bgcolor: '#fff',
+      }}>
+        <Button variant="contained" onClick={handleSubmit} disabled={perm === 5} sx={{ px: 3.5 }}>
+          Salvar
+        </Button>
+        <Button variant="text" sx={{ color: COLORS.textSecondary }} onClick={() => navigate('/listar-tours')}>
+          Cancelar
+        </Button>
+      </Box>
+
+      {/* ── Modal de comissão ── */}
       <Dialog open={commissionModal} onClose={() => setCommissionModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Dados da Comissão</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', pb: 1 }}>Dados da Comissão</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField fullWidth size="small" label="Nome do Comissionado" value={form.comissionersName||''}
-                onChange={e => set('comissionersName', e.target.value)} />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth size="small" label="Contato" value={form.comissionersContact||''}
-                onChange={e => set('comissionersContact', e.target.value)} />
-            </Grid>
-            <Grid item xs={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Moeda</InputLabel>
-                <Select value={form.comissionCurrency||''} label="Moeda"
-                  onChange={e => set('comissionCurrency', e.target.value)}>
-                  {currencies.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={6}>
-              <TextField fullWidth size="small" label="Valor" value={form.comissionPrice||''}
-                onChange={e => set('comissionPrice', e.target.value)} />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControlLabel control={<Checkbox checked={!!form.comissionPaid} onChange={e => set('comissionPaid', e.target.checked)} />} label="Pago" />
-            </Grid>
-          </Grid>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              <TextField fullWidth size="small" label="Nome do Comissionado"
+                value={form.comissionersName || ''} onChange={e => set('comissionersName', e.target.value)} />
+              <TextField fullWidth size="small" label="Contato"
+                value={form.comissionersContact || ''} onChange={e => set('comissionersContact', e.target.value)} />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              <Autocomplete freeSolo options={currencies} value={form.comissionCurrency || ''}
+                onInputChange={(_, v) => set('comissionCurrency', v)}
+                renderInput={p => <TextField {...p} size="small" label="Moeda" />} />
+              <TextField fullWidth size="small" label="Valor da Comissão"
+                value={form.comissionPrice || ''} onChange={e => set('comissionPrice', e.target.value)}
+                disabled={form.comissionByPercentage} />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <FormControlLabel
+                control={<Checkbox checked={!!form.comissionPaid} size="small" onChange={e => set('comissionPaid', e.target.checked)} />}
+                label={<Typography sx={{ fontSize: '0.83rem' }}>Pago</Typography>}
+                sx={{ m: 0 }}
+              />
+              <FormControlLabel
+                control={<Checkbox checked={!!form.comissionByPercentage} size="small" onChange={e => set('comissionByPercentage', e.target.checked)} />}
+                label={<Typography sx={{ fontSize: '0.83rem' }}>Calcular por porcentagem</Typography>}
+                sx={{ m: 0 }}
+              />
+            </Box>
+            {form.comissionByPercentage && (
+              <TextField fullWidth size="small" label="Percentual (%)" type="number"
+                value={form.comissionPercentage || ''} onChange={e => set('comissionPercentage', e.target.value)} />
+            )}
+            {form.commissionId && (
+              <Button color="error" size="small" variant="outlined" onClick={deleteCommission} sx={{ alignSelf: 'flex-start' }}>
+                Excluir esta comissão
+              </Button>
+            )}
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCommissionModal(false)} variant="contained">OK</Button>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setCommissionModal(false)} variant="contained">Confirmar</Button>
         </DialogActions>
       </Dialog>
+
     </Box>
   );
 }

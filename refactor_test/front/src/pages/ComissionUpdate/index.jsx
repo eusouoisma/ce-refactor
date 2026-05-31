@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, FormControl, InputLabel, Checkbox, FormControlLabel, Button } from '@mui/material';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../utils/env';
+import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
 
 export default function ComissionUpdate() {
@@ -14,8 +14,8 @@ export default function ComissionUpdate() {
   const [currencies, setCurrencies] = useState([]);
 
   useEffect(() => {
-    fetch(`${API_URL}/settings/currencies`).then(r => r.json()).then(d => setCurrencies(d.map ? d.map(x => x.value) : []));
-    fetch(`${API_URL}/comissions/list-by-id?comission_id=${id}`).then(r => r.json()).then(d => {
+    apiFetch('/settings/currencies').then(r => r.json()).then(d => setCurrencies(d.map ? d.map(x => x.value) : []));
+    apiFetch(`/comissions/list-by-id?comission_id=${id}`).then(r => r.json()).then(d => {
       if (d.id) setForm({ ...d, comissionPaid: d.comissionPaid == 1 });
     });
   }, [id]);
@@ -23,8 +23,8 @@ export default function ComissionUpdate() {
   function set(f, v) { setForm(p => ({ ...p, [f]: v })); }
 
   async function handleSubmit() {
-    const res = await fetch(`${API_URL}/comissions/update?id=${id}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await apiFetch(`/comissions/update?id=${id}`, {
+      method: 'POST',
       body: JSON.stringify({ ...form, lastEditBy: userName }),
     });
     const data = await res.json();

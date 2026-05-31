@@ -4,11 +4,11 @@ import { Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, 
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Swal from 'sweetalert2';
-import { API_URL } from '../../utils/env';
+import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
 
 const newContact = () => ({ name: '', contact: '', office: '', email: '' });
-const defaultForm = { customerType: 'Agencia', customerName: '', contacts: [newContact()] };
+const defaultForm = { customerType: '', customerName: '', contacts: [newContact()] };
 
 export default function CustomerInput() {
   const navigate = useNavigate();
@@ -29,8 +29,8 @@ export default function CustomerInput() {
 
   async function handleSubmit(andNew = false) {
     const payload = { ...form, createdBy: userName, lastEditBy: userName };
-    const res = await fetch(`${API_URL}/customers/create`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await apiFetch('/customers/create', {
+      method: 'POST',
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -53,6 +53,7 @@ export default function CustomerInput() {
               <FormControl fullWidth size="small">
                 <InputLabel>Tipo</InputLabel>
                 <Select value={form.customerType} label="Tipo" onChange={e => setForm(p => ({ ...p, customerType: e.target.value }))}>
+                  <MenuItem value=""><em>—</em></MenuItem>
                   <MenuItem value="Agencia">Agência</MenuItem>
                   <MenuItem value="Guia">Guia</MenuItem>
                   <MenuItem value="ClienteFinal">Cliente Final</MenuItem>
