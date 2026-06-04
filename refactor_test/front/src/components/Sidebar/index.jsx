@@ -24,7 +24,7 @@ const DRAWER_WIDTH = 220;
 const COLLAPSED_WIDTH = 56;
 
 const isListingPath = (path) =>
-  path.includes('listar') || path === '/usuarios' || path === '/tours-cancelados';
+  path.includes('listar') || path === '/usuarios' || path === '/tours-cancelados' || path === '/importar-planne';
 
 const sectionColors = {
   Tours:          '#ff642e',
@@ -41,6 +41,7 @@ const menuItems = [
   { label: 'Busca Rápida',  path: '/quick-search',  icon: SearchRoundedIcon,               permissions: [1,2,4,5] },
   { label: 'Tours', icon: ConfirmationNumberRoundedIcon, color: sectionColors['Tours'], children: [
     { label: 'Cadastrar Tour',       path: '/cadastrar-tour',            permissions: [1,2,4,5] },
+    { label: 'Importar da Planne',   path: '/importar-planne',           permissions: [1,2,4,5] },
     { label: 'Listar Tours',         path: '/listar-tours',              permissions: [1,2,4,5] },
     { label: 'Lista Resumida',        path: '/listar-tours-resumido',     permissions: [1,2,3,4,5] },
     { label: 'Cancelados',           path: '/tours-cancelados',          permissions: [1,2,3,4,5] },

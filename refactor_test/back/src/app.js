@@ -26,6 +26,7 @@ const quickSearchRouter  = require('./http/routes/quickSearch');
 const changeRequestsRouter = require('./http/routes/changeRequests');
 const numberOfGroupsRouter = require('./http/routes/numberOfGroups');
 const aiChatRouter         = require('./http/routes/aiChat');
+const planneRouter         = require('./http/routes/planne');
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use('/quick-search',   quickSearchRouter);
 app.use('/changeRequests', changeRequestsRouter);
 app.use('/numberOfGroups', numberOfGroupsRouter);
 app.use('/ai-chat',        aiChatRouter);
+app.use('/planne',         planneRouter);
 
 app.use(errorHandler);
 

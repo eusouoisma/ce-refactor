@@ -1,0 +1,2 @@
+ALTER TABLE tour ADD COLUMN IF NOT EXISTS "planneId" TEXT DEFAULT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_tour_planne_id" ON tour("planneId") WHERE "planneId" IS NOT NULL;

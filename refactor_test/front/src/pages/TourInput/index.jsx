@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Typography, TextField, Autocomplete,
   Button, Checkbox, FormControlLabel,
@@ -114,8 +114,13 @@ function PaxCounter({ label, value, onChange, sublabel }) {
 
 export default function TourInput() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { userName } = useStore();
-  const [form, setForm] = useState({ ...defaultForm });
+  const planneId    = location.state?.planneId   || null;
+  const planneData  = location.state?.planneData || null;
+  const [form, setForm] = useState(() =>
+    planneData ? { ...defaultForm, ...planneData } : { ...defaultForm }
+  );
   const [platforms, setPlatforms]             = useState([]);
   const [products, setProducts]               = useState([]);
   const [languages, setLanguages]             = useState([]);
@@ -231,6 +236,7 @@ export default function TourInput() {
       country: Array.isArray(form.country) ? form.country.join(', ') : form.country,
       createdBy: userName,
       lastEditBy: userName,
+      ...(planneId ? { planneId } : {}),
     };
     const res = await apiFetch('/tours/create', {
       method: 'POST',
@@ -246,7 +252,7 @@ export default function TourInput() {
       setBlockUpdateNumberOfGroups(false);
     } else {
       await Swal.fire({ icon: 'success', title: 'Tour cadastrado com sucesso!' });
-      navigate('/listar-tours');
+      navigate(planneId ? '/importar-planne' : '/listar-tours');
     }
   }
 
@@ -273,6 +279,14 @@ export default function TourInput() {
           <Typography sx={{ fontWeight: 800, fontSize: '1.3rem', color: COLORS.textPrimary, lineHeight: 1.2 }}>
             Cadastrar Tour
           </Typography>
+          {planneId && (
+            <Box sx={{ mt: 1, px: 1.5, py: 0.75, bgcolor: '#e8f4fd', borderRadius: 1.5, border: '1px solid #b3d9f5', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: COLORS.primary, flexShrink: 0 }} />
+              <Typography sx={{ fontSize: '0.75rem', color: COLORS.primary, fontWeight: 600 }}>
+                Importação da Planne — revise os dados e salve para confirmar
+              </Typography>
+            </Box>
+          )}
         </Box>
 
         {/* Seletor de tipo */}

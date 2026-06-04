@@ -15,6 +15,7 @@ const { QuickSearchRepository }     = require('./infrastructure/repositories/Qui
 const { ReportRepository }          = require('./infrastructure/repositories/ReportRepository');
 const { SettingsRepository }        = require('./infrastructure/repositories/SettingsRepository');
 const { TourEditHistoryRepository } = require('./infrastructure/repositories/TourEditHistoryRepository');
+const { PlanneSyncRepository }      = require('./infrastructure/repositories/PlanneSyncRepository');
 
 // Application services
 const { TourService }            = require('./application/TourService');
@@ -29,6 +30,7 @@ const { QuickSearchService }     = require('./application/QuickSearchService');
 const { ReportService }          = require('./application/ReportService');
 const { SettingsService }        = require('./application/SettingsService');
 const { TourEditHistoryService } = require('./application/TourEditHistoryService');
+const { PlanneSyncService }      = require('./application/PlanneSyncService');
 
 // Instantiate repositories
 const tourRepo             = new TourRepository(pool);
@@ -43,9 +45,11 @@ const quickSearchRepo      = new QuickSearchRepository(pool);
 const reportRepo           = new ReportRepository(pool);
 const settingsRepo         = new SettingsRepository(pool);
 const tourEditHistoryRepo  = new TourEditHistoryRepository(pool);
+const planneSyncRepo       = new PlanneSyncRepository(pool);
 
 // Instantiate services
 const tourEditHistoryService = new TourEditHistoryService({ tourEditHistoryRepo });
+const planneSyncService      = new PlanneSyncService({ planneSyncRepo });
 const tourService = new TourService({
   pool, tourRepo, settingsRepo, dayOrderRepo, comissionRepo, changeRequestRepo, customerRepo,
   tourEditHistoryService,
@@ -64,5 +68,5 @@ const settingsService       = new SettingsService({ settingsRepo });
 module.exports = {
   tourService, userService, customerService, comissionService, productService,
   dayOrderService, changeRequestService, numberOfGroupsService, quickSearchService,
-  reportService, settingsService,
+  reportService, settingsService, planneSyncService,
 };

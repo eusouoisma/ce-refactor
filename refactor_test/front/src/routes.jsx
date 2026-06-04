@@ -35,6 +35,7 @@ import AnalysisByCountry from './pages/AnalysisByCountry';
 import AnalysisByCustomers from './pages/AnalysisByCustomers';
 import AnalysisByHour from './pages/AnalysisByHour';
 import AnalysisByProduct from './pages/AnalysisByProduct';
+import PlanneTourImport from './pages/PlanneTourImport';
 
 const P = (perms, Child) => (
   <PrivateRoute permissions={perms}><Child /></PrivateRoute>
@@ -53,6 +54,7 @@ export default function AppRoutes() {
       <Route path="/" element={<PrivateRoute><Default /></PrivateRoute>} />
       <Route path="/quick-search" element={P([1,2,4,5], QuickSearch)} />
       <Route path="/cadastrar-tour" element={P([1,2,4,5], TourInput)} />
+      <Route path="/importar-planne" element={P([1,2,4,5], PlanneTourImport)} />
       <Route path="/listar-tours" element={P([1,2,4,5], TourList)} />
       <Route path="/editar-tour" element={P([1,2,4,5], TourUpdate)} />
       <Route path="/tours-cancelados" element={P([1,2,3,4,5], CanceledList)} />

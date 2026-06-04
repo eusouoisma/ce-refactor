@@ -27,7 +27,7 @@ class TourService {
       const currentYear = await this.settingsRepo.getCurrentYear();
       if (!t.orderRef) t.orderRef = await this.settingsRepo.generateOrderRef(client);
       const dayOrderId = await this.dayOrderRepo.getOrCreate(t.tourDate, client);
-      const tourId = await this.tourRepo.insert(t, currentYear, dayOrderId, client);
+      const tourId = await this.tourRepo.insert(t, currentYear, dayOrderId, client, data.planneId || null);
 
       if (t.commissioned === '1') {
         await this.comissionRepo.insert(tourId, t.orderRef, { ...data, comissionPaid: t.comissionPaid === '1' }, currentYear, client);
