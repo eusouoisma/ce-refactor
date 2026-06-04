@@ -114,8 +114,15 @@ class AiChatService {
     const sessionMessages = await this.repo.getSessionMessages(sessionId);
     const messages = sessionMessages.map(m => ({ role: m.role, content: m.content }));
 
+    const now = new Date();
+    const dataAtual = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' });
+    const anoAtual  = now.toLocaleDateString('pt-BR', { year: 'numeric', timeZone: 'America/Sao_Paulo' }).slice(-4);
+    const mesAtual  = String(now.getMonth() + 1).padStart(2, '0');
+
     const systemPrompt = `Você é um assistente inteligente e educado do sistema de gestão CE (agência de turismo).
 Seu nome é CE Assistente. Você ajuda com consultas e análises sobre os dados do sistema.
+
+DATA E HORA ATUAL: ${dataAtual} (ano ${anoAtual}, mês ${mesAtual}) — use SEMPRE esta data como referência para "hoje", "este mês", "este ano" etc.
 
 Usuário logado: ${userName}
 
