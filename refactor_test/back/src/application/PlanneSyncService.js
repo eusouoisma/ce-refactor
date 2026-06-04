@@ -1,4 +1,4 @@
-const SKIP_STATES = new Set(['canceled', 'expired', 'payment_voided', 'payment_chargeback']);
+const SKIP_STATES = new Set(['canceled', 'expired', 'payment_voided', 'payment_chargeback', 'pending', 'created']);
 
 const LANGUAGE_MAP = {
   es: 'Espanhol', en: 'Inglês', pt: 'Português', fr: 'Francês',
@@ -20,25 +20,26 @@ const COUNTRY_MAP = {
 };
 
 const STATUS_MAP = {
-  payment_complete:   'Pago',
-  pending:            'Pendente',
-  created:            'Criado',
-  expired:            'Expirado',
-  canceled:           'Cancelado',
-  payment_voided:     'Cancelado',
-  payment_chargeback: 'Chargeback',
+  payment_complete: 'Pago',
 };
 
 class PlanneSyncService {
   constructor({ planneSyncRepo }) {
-    this.repo = planneSyncRepo;
+    this.repo   = planneSyncRepo;
     this.BASE   = 'https://seller-api.planne.com.br/1';
     this.APP_ID = process.env.PLANNE_APP_ID    || '2902';
     this.HEADERS = {
       'X-Client-Id':     process.env.PLANNE_CLIENT_ID     || '',
       'X-Client-Secret': process.env.PLANNE_CLIENT_SECRET || '',
     };
+    // In-process cache — built once per server lifecycle
+    this._typeNameMap   = null; // typeId  → tariff type name
+    this._tariffTypeMap = null; // tariffId → typeId
+    this._productNameMap = null; // productId → product name
+    this._cacheBuilding = null;
   }
+
+  // ── HTTP ─────────────────────────────────────────────────────────────────
 
   async _get(path) {
     const res = await fetch(`${this.BASE}${path}`, { headers: this.HEADERS });
@@ -46,7 +47,6 @@ class PlanneSyncService {
     return res.json();
   }
 
-  // Normalise paginated or plain-array responses
   _items(body) {
     if (Array.isArray(body)) return body;
     if (body && Array.isArray(body.data))  return body.data;
@@ -54,12 +54,11 @@ class PlanneSyncService {
     return [];
   }
 
-  async _fetchAllSales() {
+  async _fetchAllPages(path) {
     let page = 1, all = [];
+    const sep = path.includes('?') ? '&' : '?';
     while (true) {
-      const body = await this._get(
-        `/apps/${this.APP_ID}/sales?perPage=100&page=${page}&include=customer`
-      );
+      const body = await this._get(`${path}${sep}perPage=100&page=${page}`);
       const items = this._items(body);
       all = all.concat(items);
       if (items.length < 100) break;
@@ -68,77 +67,172 @@ class PlanneSyncService {
     return all;
   }
 
-  async _fetchProducts() {
-    let page = 1, map = {};
-    while (true) {
-      const body = await this._get(`/apps/${this.APP_ID}/products?perPage=100&page=${page}`);
-      const items = this._items(body);
-      for (const p of items) map[String(p.id)] = p.name || p.title || '';
-      if (items.length < 100) break;
-      page++;
+  // ── Cache ─────────────────────────────────────────────────────────────────
+
+  async _ensureCache() {
+    if (this._typeNameMap) return;
+    // Prevent concurrent builds
+    if (!this._cacheBuilding) {
+      this._cacheBuilding = this._buildCache().finally(() => { this._cacheBuilding = null; });
     }
-    return map;
+    await this._cacheBuilding;
   }
 
-  async _fetchSaleItems(saleId) {
+  async _buildCache() {
+    // 1. Tariff types: typeId → name
+    const types = await this._get(`/apps/${this.APP_ID}/tariffTypes`);
+    this._typeNameMap = {};
+    for (const t of this._items(types)) {
+      this._typeNameMap[String(t.id)] = t.name || '';
+    }
+
+    // 2. Products: productId → name
+    const products = await this._fetchAllPages(`/apps/${this.APP_ID}/products`);
+    this._productNameMap = {};
+    for (const p of products) {
+      this._productNameMap[String(p.id)] = p.internalName || p.name || '';
+    }
+
+    // 3. For each product, fetch all tariff groups, then all tariffs
+    //    tariffId → typeId
+    this._tariffTypeMap = {};
+    await Promise.all(
+      products.map(async (product) => {
+        try {
+          const groups = await this._get(`/products/${product.id}/tariffGroups`);
+          await Promise.all(
+            this._items(groups).map(async (group) => {
+              try {
+                const tariffs = await this._get(`/tariffGroups/${group.id}/tariffs`);
+                for (const tariff of this._items(tariffs)) {
+                  this._tariffTypeMap[String(tariff.id)] = String(tariff.typeId);
+                }
+              } catch {}
+            })
+          );
+        } catch {}
+      })
+    );
+  }
+
+  // ── Per-sale fetches ──────────────────────────────────────────────────────
+
+  async _fetchDetailedItems(saleId) {
     try {
-      const body = await this._get(`/sales/${saleId}/items`);
-      return this._items(body);
+      return this._items(await this._get(`/sales/${saleId}/detailedItems`));
     } catch { return []; }
   }
 
+  async _fetchReservations(saleId) {
+    try {
+      return this._items(await this._get(`/sales/${saleId}/reservations`));
+    } catch { return []; }
+  }
+
+  // ── Public ────────────────────────────────────────────────────────────────
+
   async getAvailableTours() {
-    const [importedIds, allSales, productMap] = await Promise.all([
+    const [importedIds] = await Promise.all([
       this.repo.findImportedPlanneIds(),
-      this._fetchAllSales(),
-      this._fetchProducts(),
+      this._ensureCache(),
     ]);
+
+    const allSales = await this._fetchAllPages(
+      `/apps/${this.APP_ID}/sales?include=customer`
+    );
 
     const pending = allSales.filter(s =>
       !importedIds.has(s.id) && !SKIP_STATES.has(s.currentState)
     );
 
-    // Fetch items for each sale in parallel (capped to avoid overwhelming the API)
-    const BATCH = 20;
-    const itemsMap = {};
+    // Fetch detailedItems + reservations in parallel, batched to avoid rate limits
+    const BATCH = 10;
+    const detailedMap = {}, reservMap = {};
     for (let i = 0; i < pending.length; i += BATCH) {
       const batch = pending.slice(i, i + BATCH);
-      await Promise.all(
-        batch.map(async s => {
-          itemsMap[s.id] = await this._fetchSaleItems(s.id);
-        })
-      );
+      await Promise.all(batch.map(async s => {
+        [detailedMap[s.id], reservMap[s.id]] = await Promise.all([
+          this._fetchDetailedItems(s.id),
+          this._fetchReservations(s.id),
+        ]);
+      }));
     }
 
-    return pending.map(sale => this._map(sale, itemsMap[sale.id] || [], productMap));
+    return pending.map(sale =>
+      this._map(sale, detailedMap[sale.id] || [], reservMap[sale.id] || [])
+    );
   }
 
-  _map(sale, items, productMap) {
-    const item     = items[0] || {};
-    const customer = sale.customer || {};
-    const langCode = (item.selectedAttributes || []).find(a => a.type === 'language')?.value || '';
-    const fullName = [customer.firstName, customer.lastName].filter(Boolean).join(' ');
+  // ── Mapping ───────────────────────────────────────────────────────────────
+
+  _tariffTypeName(tariffId) {
+    const typeId = this._tariffTypeMap?.[String(tariffId)] || '';
+    return this._typeNameMap?.[typeId] || '';
+  }
+
+  _paxField(typeName) {
+    const n = (typeName || '').toLowerCase();
+    if (n.includes('net'))                                          return 'paxNet';
+    if (n.includes('free') || n.includes('crian') || n.includes('cortesia')) return 'paxFree';
+    if (n.includes('meia') || n.includes('half') || n.includes('estudante')) return 'paxHalf';
+    if (n.includes('carioca') || n.includes('brasileiro') || n.includes('brazil')) return 'paxBrazilian';
+    return 'paxAdult';
+  }
+
+  _computePax(detailedItems) {
+    const pax = { paxAdult: 0, paxHalf: 0, paxFree: 0, paxNet: 0, paxBrazilian: 0 };
+    for (const item of detailedItems) {
+      for (const t of (item.tariffs || [])) {
+        const name  = this._tariffTypeName(t.tariffId);
+        const field = this._paxField(name);
+        pax[field] += parseInt(t.quantity) || 0;
+      }
+    }
+    return pax;
+  }
+
+  _formatDuration(minutes) {
+    if (!minutes) return '';
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) return `${m}min`;
+    if (m === 0) return `${h}h`;
+    return `${h}h${String(m).padStart(2, '0')}`;
+  }
+
+  _map(sale, detailedItems, reservations) {
+    const item      = detailedItems[0] || {};
+    const customer  = sale.customer   || {};
+    const resv      = reservations[0] || {};
+    const langCode  = (item.selectedAttributes || []).find(a => a.type === 'language')?.value || '';
+    const fullName  = [customer.firstName, customer.lastName].filter(Boolean).join(' ');
+    const contact   = [customer.email, customer.phone].filter(Boolean).join(' / ');
+    const pax       = this._computePax(detailedItems);
+    const activity  = this._productNameMap?.[String(item.productId)] || '';
+    const type      = activity.toLowerCase().includes('regular') ? 'regular' : 'privativo';
 
     return {
       planneId:      sale.id,
       planneCode:    sale.code,
       planneState:   sale.currentState,
-      // tour fields
-      orderRef:      sale.code     || '',
-      tourDate:      item.scheduleDate || '',
-      tourHour:      item.scheduleTime || '',
-      activity:      productMap[String(item.productId)] || '',
-      platform:      'Planne',
+      orderRef:      sale.code         || '',
+      tourDate:      item.scheduleDate || resv.scheduleDate || '',
+      tourHour:      item.scheduleTime || resv.scheduleTime || '',
+      type,
+      activity,
+      duration:  this._formatDuration(resv.durationMinutes),
+      platform:  'Planne',
       language:      LANGUAGE_MAP[langCode] || langCode || '',
       client:        fullName,
       clientName:    fullName,
-      clientContact: customer.email || customer.phone || '',
+      clientContact: contact,
       country:       customer.countryCode ? [COUNTRY_MAP[customer.countryCode] || customer.countryCode] : [],
       totalValue:    sale.amountCents != null ? (sale.amountCents / 100).toFixed(2) : '',
       currency:      sale.amountCurrencyInfo?.currency || 'BRL',
       paymentStatus: STATUS_MAP[sale.currentState] || sale.currentState || '',
-      comments:      '',
+      comments:      resv.observation || '',
       createdAt:     sale.createdAt,
+      ...pax,
     };
   }
 }

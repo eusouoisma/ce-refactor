@@ -50,27 +50,8 @@ export default function PlanneTourImport() {
   useEffect(() => { load(); }, []);
 
   function handleImport(tour) {
-    navigate('/cadastrar-tour', {
-      state: {
-        planneId:   tour.planneId,
-        planneData: {
-          orderRef:      tour.orderRef,
-          platform:      'Planne',
-          tourDate:      tour.tourDate,
-          tourHour:      tour.tourHour,
-          activity:      tour.activity,
-          language:      tour.language,
-          client:        tour.client,
-          clientName:    tour.clientName,
-          clientContact: tour.clientContact,
-          country:       tour.country,
-          totalValue:    tour.totalValue,
-          currency:      tour.currency,
-          paymentStatus: tour.paymentStatus,
-          comments:      tour.comments || '',
-        },
-      },
-    });
+    const { planneId, planneCode, planneState, createdAt, ...tourFields } = tour;
+    navigate('/cadastrar-tour', { state: { planneId, planneData: tourFields } });
   }
 
   return (
@@ -78,9 +59,6 @@ export default function PlanneTourImport() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
         <Box>
           <Typography variant="h5">Importar Tours da Planne</Typography>
-          <Typography sx={{ fontSize: '0.78rem', color: COLORS.textSecondary, mt: 0.25 }}>
-            Tours com pagamento recebido ou pendente ainda não importados
-          </Typography>
         </Box>
         <Tooltip title="Recarregar">
           <IconButton onClick={load} disabled={loading}>
@@ -116,13 +94,13 @@ export default function PlanneTourImport() {
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  {['Data', 'Hora', 'Atividade', 'Cliente', 'País', 'Idioma', 'Valor', 'Status', 'Reserva', ''].map(h => (
+                  {['Data', 'Hora', 'Duração', 'Tipo', 'Atividade', 'Idioma', 'Cliente', 'Contato', 'País', 'Ad', 'Meia', 'Free', 'NET', 'Bras.', 'Valor', 'Status', 'Reserva', ''].map(h => (
                     <TableCell key={h} sx={{
                       fontWeight: 600, fontSize: '0.58rem', textTransform: 'uppercase',
                       letterSpacing: '0.04em', bgcolor: COLORS.tableHeaderBg,
                       color: COLORS.tableHeaderText, py: 0.35, px: 1,
                       borderBottom: `2px solid ${COLORS.border}`,
-                      position: 'sticky', top: 0, zIndex: 2,
+                      position: 'sticky', top: 0, zIndex: 2, whiteSpace: 'nowrap',
                     }}>{h}</TableCell>
                   ))}
                 </TableRow>
@@ -135,10 +113,24 @@ export default function PlanneTourImport() {
                   }}>
                     <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, whiteSpace: 'nowrap' }}>{fmtDate(t.tourDate)}</TableCell>
                     <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, whiteSpace: 'nowrap' }}>{t.tourHour}</TableCell>
-                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, fontWeight: 600 }}>{t.activity || <em style={{ color: '#bbb' }}>—</em>}</TableCell>
-                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1 }}>{t.client}</TableCell>
-                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1 }}>{t.country?.[0] || ''}</TableCell>
+                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, whiteSpace: 'nowrap' }}>{t.duration || <em style={{ color: '#bbb' }}>—</em>}</TableCell>
+                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1 }}>
+                      <Chip label={t.type === 'regular' ? 'Regular' : 'Privativo'} size="small"
+                        sx={{ fontSize: '0.58rem', height: 18,
+                          bgcolor: t.type === 'regular' ? '#ff642e22' : '#a25ddc22',
+                          color:   t.type === 'regular' ? '#ff642e'   : '#a25ddc',
+                          fontWeight: 600 }} />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, fontWeight: 600, whiteSpace: 'nowrap' }}>{t.activity || <em style={{ color: '#bbb' }}>—</em>}</TableCell>
                     <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1 }}>{t.language}</TableCell>
+                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, whiteSpace: 'nowrap' }}>{t.client}</TableCell>
+                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, color: COLORS.textSecondary }}>{t.clientContact}</TableCell>
+                    <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, whiteSpace: 'nowrap' }}>{t.country?.[0] || ''}</TableCell>
+                    {['paxAdult','paxHalf','paxFree','paxNet','paxBrazilian'].map(k => (
+                      <TableCell key={k} sx={{ fontSize: '0.66rem', py: 0.3, px: 1, textAlign: 'center' }}>
+                        {t[k] > 0 ? t[k] : <span style={{ color: '#ccc' }}>—</span>}
+                      </TableCell>
+                    ))}
                     <TableCell sx={{ fontSize: '0.66rem', py: 0.3, px: 1, whiteSpace: 'nowrap' }}>{fmtMoney(t.totalValue, t.currency)}</TableCell>
                     <TableCell sx={{ py: 0.3, px: 1 }}>
                       <Chip
@@ -148,7 +140,7 @@ export default function PlanneTourImport() {
                         sx={{ fontSize: '0.58rem', height: 18 }}
                       />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.64rem', py: 0.3, px: 1, color: COLORS.textSecondary, fontFamily: 'monospace' }}>{t.planneCode}</TableCell>
+                    <TableCell sx={{ fontSize: '0.64rem', py: 0.3, px: 1, color: COLORS.textSecondary, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{t.planneCode}</TableCell>
                     <TableCell sx={{ py: 0.3, px: 1 }}>
                       <Button
                         size="small"

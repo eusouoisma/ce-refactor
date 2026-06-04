@@ -165,6 +165,12 @@ class TourRepository {
     return res.rows[0] || null;
   }
 
+  async existsByOrderRef(orderRef, tx) {
+    const db = this._db(tx);
+    const res = await db.query(`SELECT 1 FROM tour WHERE "orderRef" = $1 LIMIT 1`, [orderRef]);
+    return res.rowCount > 0;
+  }
+
   async findCurrentState(id, tx) {
     const db = this._db(tx);
     const res = await db.query(

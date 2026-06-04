@@ -25,7 +25,12 @@ class TourService {
     try {
       await client.query('BEGIN');
       const currentYear = await this.settingsRepo.getCurrentYear();
-      if (!t.orderRef) t.orderRef = await this.settingsRepo.generateOrderRef(client);
+      if (!t.orderRef) {
+        t.orderRef = await this.settingsRepo.generateOrderRef(client);
+      } else if (await this.tourRepo.existsByOrderRef(t.orderRef, client)) {
+        await client.query('ROLLBACK');
+        return { error: true, message: `Já existe um tour com o número de reserva "${t.orderRef}".` };
+      }
       const dayOrderId = await this.dayOrderRepo.getOrCreate(t.tourDate, client);
       const tourId = await this.tourRepo.insert(t, currentYear, dayOrderId, client, data.planneId || null);
 

@@ -133,8 +133,8 @@ export default function TourInput() {
   const [customers, setCustomers]             = useState([]);
   const [countries, setCountries]             = useState([]);
   const [commissionModal, setCommissionModal] = useState(false);
-  const [blockUpdateTotalValue, setBlockUpdateTotalValue]         = useState(false);
-  const [blockUpdateNumberOfGroups, setBlockUpdateNumberOfGroups] = useState(false);
+  const [blockUpdateTotalValue, setBlockUpdateTotalValue]         = useState(!!planneData);
+  const [blockUpdateNumberOfGroups, setBlockUpdateNumberOfGroups] = useState(!!planneData);
   const [durationManuallyEdited, setDurationManuallyEdited]       = useState(false);
 
   useEffect(() => {

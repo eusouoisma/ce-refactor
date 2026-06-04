@@ -17,6 +17,8 @@ import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded';
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import { useStore } from '../Store';
 import { COLORS } from '../../utils/colors';
 
@@ -92,6 +94,7 @@ export default function Sidebar() {
     setCollapsed(isListingPath(location.pathname));
   }, [location.pathname]);
 
+  const goBack    = () => navigate(-1);
   const toggle    = (label) => setOpen(prev => ({ ...prev, [label]: !prev[label] }));
   const hasAccess = (item) => !item.permissions || item.permissions.includes(perm);
   const isActive  = (path) => location.pathname === path;
@@ -111,15 +114,36 @@ export default function Sidebar() {
         transition: 'width 0.2s ease',
       }}
     >
-      {/* Toggle button */}
+      {/* Botões de controle */}
       <Box sx={{
         display: 'flex',
-        justifyContent: collapsed ? 'center' : 'flex-end',
-        px: 0.5,
+        justifyContent: collapsed ? 'center' : 'space-between',
+        alignItems: 'center',
+        px: 0.75,
         pt: 0.75,
         pb: 0,
         flexShrink: 0,
+        gap: 0.5,
       }}>
+        {/* Voltar — oculto quando recolhido */}
+        {!collapsed && (
+          <Tooltip title="Voltar" placement="right">
+            <IconButton
+              onClick={goBack}
+              sx={{
+                color: 'rgba(255,255,255,0.6)',
+                borderRadius: 1.5,
+                width: 28,
+                height: 28,
+                '&:hover': { color: '#fff', bgcolor: COLORS.sidebarHover },
+              }}
+            >
+              <ChevronLeftRoundedIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* Recolher/Expandir */}
         <Tooltip title={collapsed ? 'Expandir menu' : 'Recolher menu'} placement="right">
           <IconButton
             onClick={() => setCollapsed(v => !v)}
@@ -134,8 +158,8 @@ export default function Sidebar() {
             }}
           >
             {collapsed
-              ? <ChevronRightRoundedIcon sx={{ fontSize: 16 }} />
-              : <ChevronLeftRoundedIcon sx={{ fontSize: 16 }} />
+              ? <MenuRoundedIcon sx={{ fontSize: 16 }} />
+              : <MenuOpenRoundedIcon sx={{ fontSize: 16 }} />
             }
           </IconButton>
         </Tooltip>
