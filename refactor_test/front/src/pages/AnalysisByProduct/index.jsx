@@ -58,20 +58,20 @@ const thSx = {
   bgcolor: COLORS.tableHeaderBg,
   color: COLORS.tableHeaderText,
   fontWeight: 600,
-  fontSize: '0.72rem',
+  fontSize: '0.58rem',
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
   borderBottom: `2px solid ${COLORS.border}`,
   borderRight: `1px solid ${COLORS.border}`,
   whiteSpace: 'nowrap',
-  py: 1,
-  px: 1.5,
+  py: 0.3,
+  px: 1,
 };
 
 const cellSx = (i, bold) => ({
-  fontSize: '0.82rem',
-  py: 0.75,
-  px: 1.5,
+  fontSize: '0.66rem',
+  py: 0.25,
+  px: 1,
   bgcolor: i % 2 === 0 ? '#fff' : '#fafafa',
   borderRight: `1px solid ${COLORS.border}`,
   borderBottom: `1px solid ${COLORS.border}`,
@@ -79,9 +79,9 @@ const cellSx = (i, bold) => ({
 });
 
 const totalRowSx = {
-  fontSize: '0.82rem',
-  py: 0.75,
-  px: 1.5,
+  fontSize: '0.66rem',
+  py: 0.25,
+  px: 1,
   bgcolor: '#f0f0f0',
   borderRight: `1px solid ${COLORS.border}`,
   borderBottom: `1px solid ${COLORS.border}`,

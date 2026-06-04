@@ -34,7 +34,9 @@ export default function FinancialTourUpdate() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const id = params.get('id');
-  const { userName } = useStore();
+  const { userName, userPermissions } = useStore();
+  const perm = parseInt(userPermissions);
+  const canSeeFinancialHistory = [2, 4, 5].includes(perm);
   const [form, setForm] = useState(null);
   const [products, setProducts]               = useState([]);
   const [statuses, setStatuses]               = useState([]);
@@ -44,6 +46,8 @@ export default function FinancialTourUpdate() {
   const [companies, setCompanies]             = useState([]);
   const [accountNumbers, setAccountNumbers]   = useState([]);
   const [changeRequests, setChangeRequests]   = useState([]);
+  const [officeHistory,    setOfficeHistory]    = useState([]);
+  const [financialHistory, setFinancialHistory] = useState([]);
 
   useEffect(() => {
     const urls = [
@@ -80,6 +84,16 @@ export default function FinancialTourUpdate() {
         setChangeRequests(Array.isArray(crs) ? crs.map(cr => ({ ...cr, approved: false, reproved: false })) : []);
       });
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const fetches = [apiFetch(`/tours/edit-history?tour_id=${id}&type=office`).then(r => r.json())];
+    if (canSeeFinancialHistory) fetches.push(apiFetch(`/tours/edit-history?tour_id=${id}&type=financial`).then(r => r.json()));
+    Promise.all(fetches).then(([office, financial]) => {
+      setOfficeHistory(Array.isArray(office) ? office : []);
+      if (canSeeFinancialHistory) setFinancialHistory(Array.isArray(financial) ? financial : []);
+    }).catch(() => {});
+  }, [id, canSeeFinancialHistory]);
 
   function set(f, v) { setForm(p => ({ ...p, [f]: v })); }
 
@@ -330,6 +344,94 @@ export default function FinancialTourUpdate() {
                     ))}
                   </TableBody>
                 </Table>
+              </Section>
+            </>
+          )}
+
+          {/* ── Histórico de Edições ── */}
+          {(officeHistory.length > 0 || financialHistory.length > 0) && (
+            <>
+              <Divider />
+              <Section label="Histórico de Edições" color="#676879">
+                {officeHistory.length > 0 && (
+                  <Box sx={{ mb: canSeeFinancialHistory && financialHistory.length > 0 ? 2 : 0 }}>
+                    <Typography sx={{ fontSize: '0.64rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: COLORS.primary, mb: 0.75 }}>
+                      Escritório
+                    </Typography>
+                    <Box sx={{ border: `1px solid ${COLORS.border}`, borderRadius: 1.5, overflow: 'hidden' }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: COLORS.tableHeaderBg }}>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Data/Hora</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Usuário</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Campo</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>De</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Para</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {officeHistory.map((e) => (
+                            <TableRow key={e.id} sx={{ '&:last-child td': { border: 0 } }}>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary, whiteSpace: 'nowrap' }}>
+                                {new Date(e.editedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600 }}>{e.editedBy}</TableCell>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1 }}>
+                                <Chip label={e.fieldLabel} size="small" sx={{ fontSize: '0.58rem', height: 18, bgcolor: `${COLORS.primary}18`, color: COLORS.primary, fontWeight: 600 }} />
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary }}>
+                                {e.oldValue || <em style={{ color: '#bbb' }}>vazio</em>}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600, color: COLORS.primary }}>
+                                {e.newValue || <em style={{ color: '#bbb' }}>vazio</em>}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </Box>
+                  </Box>
+                )}
+
+                {canSeeFinancialHistory && financialHistory.length > 0 && (
+                  <Box>
+                    <Typography sx={{ fontSize: '0.64rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#00c875', mb: 0.75 }}>
+                      Financeiro
+                    </Typography>
+                    <Box sx={{ border: `1px solid ${COLORS.border}`, borderRadius: 1.5, overflow: 'hidden' }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: COLORS.tableHeaderBg }}>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Data/Hora</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Usuário</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Campo</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>De</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Para</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {financialHistory.map((e) => (
+                            <TableRow key={e.id} sx={{ '&:last-child td': { border: 0 } }}>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary, whiteSpace: 'nowrap' }}>
+                                {new Date(e.editedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600 }}>{e.editedBy}</TableCell>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1 }}>
+                                <Chip label={e.fieldLabel} size="small" sx={{ fontSize: '0.58rem', height: 18, bgcolor: '#00c87518', color: '#00a060', fontWeight: 600 }} />
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary }}>
+                                {e.oldValue || <em style={{ color: '#bbb' }}>vazio</em>}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600, color: '#00a060' }}>
+                                {e.newValue || <em style={{ color: '#bbb' }}>vazio</em>}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </Box>
+                  </Box>
+                )}
               </Section>
             </>
           )}

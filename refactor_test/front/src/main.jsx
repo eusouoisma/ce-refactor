@@ -103,7 +103,14 @@ const theme = createTheme({
     },
     MuiTableCell: {
       styleOverrides: {
-        root: { fontFamily: '"Poppins", "Roboto", sans-serif' },
+        root: {
+          fontFamily: '"Poppins", "Roboto", sans-serif',
+          fontSize: '0.7rem',
+          paddingTop: 3,
+          paddingBottom: 3,
+          paddingLeft: 8,
+          paddingRight: 8,
+        },
       },
     },
     MuiAutocomplete: {

@@ -27,13 +27,14 @@ const getCellBg     = i => i % 2 === 0 ? ACCENT_B            : '#ffffff';
 
 const HEADER_SX = {
   fontWeight: 600,
-  fontSize: '0.72rem',
+  fontSize: '0.58rem',
   whiteSpace: 'nowrap',
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
   borderBottom: `2px solid ${COLORS.border}`,
   borderRight: `1px solid ${COLORS.border}`,
-  py: 1.25,
+  py: 0.35,
+  px: 1,
   position: 'sticky',
   top: 0,
   zIndex: 2,
@@ -282,7 +283,7 @@ export default function DayOrderPayments() {
                     <TableCell
                       key={col.code}
                       onClick={() => canEdit && setEditingPayment(p.paymentId)}
-                      sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.85, whiteSpace: 'nowrap', cursor: canEdit ? 'pointer' : 'default' }}
+                      sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, whiteSpace: 'nowrap', cursor: canEdit ? 'pointer' : 'default' }}
                     >
                       {editingPayment === p.paymentId ? (
                         <TextField
@@ -303,7 +304,7 @@ export default function DayOrderPayments() {
                     <TableCell
                       key={col.code}
                       onClick={() => canEdit && setEditingComments(p.paymentId)}
-                      sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.85, cursor: canEdit ? 'pointer' : 'default' }}
+                      sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, cursor: canEdit ? 'pointer' : 'default' }}
                     >
                       {editingComments === p.paymentId ? (
                         <TextField
@@ -321,13 +322,13 @@ export default function DayOrderPayments() {
                   );
 
                   if (col.code === 'workedTime') return (
-                    <TableCell key={col.code} sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.85, fontSize: '0.8rem', color: COLORS.textPrimary, whiteSpace: 'nowrap' }}>
+                    <TableCell key={col.code} sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, fontSize: '0.64rem', color: COLORS.textPrimary, whiteSpace: 'nowrap' }}>
                       {subHours(p.departure, p.arrival)}
                     </TableCell>
                   );
 
                   return (
-                    <TableCell key={col.code} sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.85, fontSize: '0.8rem', color: COLORS.textPrimary, whiteSpace: 'nowrap' }}>
+                    <TableCell key={col.code} sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, fontSize: '0.64rem', color: COLORS.textPrimary, whiteSpace: 'nowrap' }}>
                       {p[col.code] ?? ''}
                     </TableCell>
                   );

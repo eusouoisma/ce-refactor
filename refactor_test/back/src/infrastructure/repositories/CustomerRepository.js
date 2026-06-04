@@ -121,14 +121,15 @@ class CustomerRepository {
 
   async findGrouped() {
     const res = await this.pool.query(
-      `SELECT c."customerName" as name, c."customerType",
+      `SELECT MIN(c."customerName") as name,
+              MAX(c."customerType") as "customerType",
               JSON_AGG(JSON_BUILD_OBJECT('id', cc.id, 'contactName', cc."contactName",
-                'contactContact', cc."contactContact", 'contactEmail', cc."contactEmail") ORDER BY cc.id) as contacts
+                'contactContact', cc."contactContact", 'contactEmail', cc."contactEmail") ORDER BY LOWER(TRIM(cc."contactName")) ASC) as contacts
        FROM customers c
        INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
-       WHERE cc.deleted = 0
-       GROUP BY c.id, c."customerName", c."customerType"
-       ORDER BY c.id ASC`
+       WHERE cc.deleted = 0 AND TRIM(c."customerName") <> ''
+       GROUP BY LOWER(TRIM(c."customerName"))
+       ORDER BY LOWER(TRIM(c."customerName")) ASC`
     );
     return res.rows;
   }

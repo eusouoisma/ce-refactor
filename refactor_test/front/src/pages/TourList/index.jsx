@@ -9,12 +9,14 @@ import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import FilterAltOffRoundedIcon from '@mui/icons-material/FilterAltOffRounded';
 import ChatBubbleRoundedIcon from '@mui/icons-material/ChatBubbleRounded';
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import { DownloadTableExcel } from 'react-export-table-to-excel';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
 import { formatMoney, getAllMonths, formatAdicional } from '../../utils/functions';
 import DataTable from '../../components/DataTable';
+import TourHistoryDialog from '../../components/TourHistoryDialog';
 import { COLORS } from '../../utils/colors';
 
 const PAGE_SIZE = 80;
@@ -145,6 +147,7 @@ export default function TourList() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [historyTourId, setHistoryTourId] = useState(null);
 
   const offsetRef = useRef(0);
   const hasMoreRef = useRef(true);
@@ -301,7 +304,17 @@ export default function TourList() {
   ) : null;
 
   const actionsCol = rowActions ? { key: '_actions', label: 'Ações', render: (_, row) => rowActions(row) } : null;
-  const columns = actionsCol ? [actionsCol, ...DATA_COLUMNS] : DATA_COLUMNS;
+  const historyCol = {
+    key: '_history', label: 'Histórico',
+    render: (_, row) => (
+      <Tooltip title="Ver histórico de edições" arrow>
+        <IconButton size="small" onClick={e => { e.stopPropagation(); setHistoryTourId(row.id); }}>
+          <HistoryRoundedIcon fontSize="small" sx={{ color: COLORS.textSecondary }} />
+        </IconButton>
+      </Tooltip>
+    ),
+  };
+  const columns = [...(actionsCol ? [actionsCol] : []), ...DATA_COLUMNS, historyCol];
 
   const activeFilterCount = Object.values(filters).filter(v => v !== null).length;
 
@@ -407,6 +420,13 @@ export default function TourList() {
           </Typography>
         )}
       </Box>
+
+      <TourHistoryDialog
+        open={!!historyTourId}
+        tourId={historyTourId}
+        onClose={() => setHistoryTourId(null)}
+        showFinancial={false}
+      />
     </Box>
   );
 }

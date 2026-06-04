@@ -29,7 +29,7 @@ const TABLE_COMPACT_SX = {
     background: '#e6e6e6',
     border: '1px solid #ccc',
     padding: '5px 8px',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: 700,
     textAlign: 'center',
     whiteSpace: 'nowrap',
@@ -38,9 +38,6 @@ const TABLE_COMPACT_SX = {
     border: '1px solid #ccc',
     padding: '2px 4px',
     textAlign: 'left',
-    fontSize: 11,
-  },
-  '& thead th': {
     fontSize: 11,
   },
   '& .MuiInputBase-root': {
@@ -87,10 +84,16 @@ export default function DayOrderEdit() {
   const [invalidTours, setInvalidTours] = useState([]);
 
   const printRef = useRef();
+  const printSummaryRef = useRef();
   const downloadRef = useRef();
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
+    pageStyle: `@page { size: A4; margin: 1cm; } body { margin: 0; }`,
+  });
+
+  const handlePrintSummary = useReactToPrint({
+    content: () => printSummaryRef.current,
     pageStyle: `@page { size: A4; margin: 1cm; } body { margin: 0; }`,
   });
 
@@ -337,14 +340,7 @@ export default function DayOrderEdit() {
       </Box>
 
       {/* ── EMPLOYEES TABLE (interactive) ── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2, mb: 0.5 }}>
-        <Typography variant="subtitle1" fontWeight={600}>Funcionários</Typography>
-        {!isBlocked && (
-          <Tooltip title="Adicionar funcionário">
-            <IconButton size="small" color="primary" onClick={addEmployee}><AddCircleIcon /></IconButton>
-          </Tooltip>
-        )}
-      </Box>
+      <Box sx={{ mt: 2, mb: 0.5 }} />
       <Box sx={TABLE_COMPACT_SX}>
         <table>
           <thead>
@@ -473,13 +469,22 @@ export default function DayOrderEdit() {
 
       <TextField fullWidth multiline minRows={3} label="Observações da Ordem do Dia"
         value={comments} onChange={e => setComments(e.target.value)}
-        disabled={isBlocked} sx={{ mt: 2, mb: 2 }}
+        disabled={isBlocked} sx={{ mt: 2, mb: 1 }}
       />
+
+      {!isBlocked && (
+        <Box sx={{ mb: 2 }}>
+          <Button variant="outlined" size="small" startIcon={<AddCircleIcon />} onClick={addEmployee}>
+            Adicionar Funcionário
+          </Button>
+        </Box>
+      )}
 
       {/* ── ACTION BUTTONS ── */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
         {!isBlocked && <Button variant="contained" onClick={save}>Salvar</Button>}
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>Imprimir</Button>
+        <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintSummary}>Imprimir Resumo</Button>
         <DownloadTableExcel filename={`Ordem-do-dia-${dayOrder.formatedDate}`} sheet="ordem-do-dia" currentTableRef={downloadRef.current}>
           <Button variant="outlined" startIcon={<FileDownloadIcon />}>Exportar Excel</Button>
         </DownloadTableExcel>
@@ -573,6 +578,56 @@ export default function DayOrderEdit() {
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+
+        {comments && (
+          <div style={{ marginTop: '8px', fontSize: '11px' }}>
+            <strong>Observações:</strong> {comments}
+          </div>
+        )}
+      </div>
+      </div>
+
+      {/* ── PRINT SUMMARY (sem funcionários) ── */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0, overflow: 'hidden' }}>
+      <div ref={printSummaryRef} style={{ width: '900px', ...PS.page }}>
+        <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+          <div style={PS.h1}>
+            Ordem do Dia — {dayOrder.formatedDate} {WEEK_DAYS[dayOrder.weekDay]}
+          </div>
+          <div style={PS.sub}>
+            {dayOrder.name} &nbsp;|&nbsp; carnavalexperience.com.br &nbsp;|&nbsp; Reservas: (21) 967659549
+          </div>
+        </div>
+
+        <div style={PS.sectionTitle}>Tours do Dia</div>
+        <table style={PS.table}>
+          <thead>
+            <tr>
+              <th style={PS.th}>#</th>
+              <th style={PS.th}>Duração</th>
+              <th style={PS.th}>Início</th>
+              <th style={PS.th}>Atividade</th>
+              <th style={PS.th}>Grupo</th>
+              <th style={PS.th}>Pax</th>
+              <th style={PS.th}>Idioma</th>
+              <th style={PS.th}>Guia</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tours.map((t, i) => (
+              <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f5f5f5' }}>
+                <td style={PS.td}>{i + 1}</td>
+                <td style={PS.td}>{t.duration}</td>
+                <td style={PS.td}>{t.tourHour}</td>
+                <td style={PS.td}>{t.activity}</td>
+                <td style={PS.td}>{t.numberOfGroups || 1}</td>
+                <td style={PS.td}>{t.paxTotal}</td>
+                <td style={PS.td}>{t.language}</td>
+                <td style={PS.td}>{t.guides}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
 

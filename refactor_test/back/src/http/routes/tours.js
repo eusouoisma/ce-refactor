@@ -108,4 +108,9 @@ router.get('/regular-list', wrap(async (req, res) => {
   res.json(await tourService.regularList(date, hour));
 }));
 
+router.get('/edit-history', wrap(async (req, res) => {
+  const { tour_id, type } = req.query;
+  res.json(await tourService.getEditHistory(tour_id, type));
+}));
+
 module.exports = router;

@@ -173,6 +173,23 @@ class TourRepository {
     return res.rows[0] || null;
   }
 
+  async findAllForDiff(id, tx) {
+    const db = this._db(tx);
+    const res = await db.query(
+      `SELECT "type","orderRef","platform","activity","adicional","duration",
+              "tourDate","tourHour","local","status","language",
+              "client","clientName","clientContact","country",
+              "paxAdult","paxHalf","paxFree","paxNet","paxBrazilian",
+              "currency","paymentMethod","paymentStatus","totalValue","netValue",
+              "numberOfGroups","ceGuide","companionName","companionContact",
+              "emailSubject","commissioned","comments","conversationHistory","isHighSeason",
+              "financialComments","company","invoiceNumber","accountNumber","paymentDate"
+       FROM tour WHERE id = $1`,
+      [id]
+    );
+    return res.rows[0] || null;
+  }
+
   async findAll(year, months, filters) {
     const monthsArr = months ? months.split(',').map(Number) : [];
     const params = [year, ...monthsArr];

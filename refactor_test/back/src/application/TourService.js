@@ -3,7 +3,7 @@ const { getTodaySP, formatDate } = require('../shared/db');
 const { AppError } = require('../shared/AppError');
 
 class TourService {
-  constructor({ pool, tourRepo, settingsRepo, dayOrderRepo, comissionRepo, changeRequestRepo, customerRepo }) {
+  constructor({ pool, tourRepo, settingsRepo, dayOrderRepo, comissionRepo, changeRequestRepo, customerRepo, tourEditHistoryService }) {
     this.pool = pool;
     this.tourRepo = tourRepo;
     this.settingsRepo = settingsRepo;
@@ -11,6 +11,7 @@ class TourService {
     this.comissionRepo = comissionRepo;
     this.changeRequestRepo = changeRequestRepo;
     this.customerRepo = customerRepo;
+    this.tourEditHistoryService = tourEditHistoryService;
   }
 
   _isTourRegularAndDateNotPassed(type, tourDate) {
@@ -63,6 +64,7 @@ class TourService {
       await client.query('BEGIN');
       const currentYear = await this.settingsRepo.getCurrentYear();
       const current = await this.tourRepo.findCurrentState(id, client);
+      const currentForDiff = await this.tourRepo.findAllForDiff(id, client);
       const currentTourDate = current?.tourDate ? new Date(current.tourDate).toISOString().split('T')[0] : '';
 
       let dayOrderId;
@@ -92,6 +94,10 @@ class TourService {
         } else {
           await this.comissionRepo.insert(id, t.orderRef, comData, currentYear, client);
         }
+      }
+
+      if (currentForDiff) {
+        await this.tourEditHistoryService.recordChanges(id, currentForDiff, t, t.lastEditBy, 'office', client);
       }
 
       await client.query('COMMIT');
@@ -220,6 +226,7 @@ class TourService {
       await client.query('BEGIN');
       const currentYear = await this.settingsRepo.getCurrentYear();
       const current = await this.tourRepo.findCurrentState(id, client);
+      const currentForDiff = await this.tourRepo.findAllForDiff(id, client);
       const currentTourDate = current?.tourDate ? new Date(current.tourDate).toISOString().split('T')[0] : '';
 
       let dayOrderId;
@@ -254,6 +261,10 @@ class TourService {
         }
       }
 
+      if (currentForDiff) {
+        await this.tourEditHistoryService.recordChanges(id, currentForDiff, t, t.lastEditBy, 'financial', client);
+      }
+
       await client.query('COMMIT');
       return { error: false };
     } catch (err) {
@@ -271,6 +282,10 @@ class TourService {
   async listClientsByDateAndHour(date, hour) {
     const clients = await this.tourRepo.findClientsByDateAndHour(date, hour);
     return { error: false, clients };
+  }
+
+  async getEditHistory(tourId, type) {
+    return this.tourEditHistoryService.getHistory(tourId, type || null);
   }
 
   async markAsLateCheck(id, lastEditBy) {

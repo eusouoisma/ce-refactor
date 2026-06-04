@@ -153,7 +153,7 @@ export default function DataTable({
 
   const commonHeaderCellSx = {
     fontWeight: 600,
-    fontSize: '0.72rem',
+    fontSize: '0.58rem',
     whiteSpace: 'nowrap',
     borderBottom: `2px solid ${COLORS.border}`,
     borderRight: `1px solid ${COLORS.border}`,
@@ -162,7 +162,8 @@ export default function DataTable({
     position: 'sticky',
     top: 0,
     zIndex: 2,
-    py: 1.25,
+    py: 0.35,
+    px: 1,
   };
 
   // Resolve which options to show in the modal
@@ -258,7 +259,7 @@ export default function DataTable({
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={totalCols} sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.88rem', border: 'none' }}>
+                <TableCell colSpan={totalCols} sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.70rem', border: 'none' }}>
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -300,11 +301,12 @@ export default function DataTable({
 
                   {columns.map((col, ci) => (
                     <TableCell key={col.key} sx={{
-                      fontSize: '0.8rem',
+                      fontSize: '0.64rem',
                       whiteSpace: 'nowrap',
                       borderBottom: `1px solid ${COLORS.tableBorder}`,
                       borderRight: `1px solid ${COLORS.tableBorder}`,
-                      py: 0.85,
+                      py: 0.25,
+                      px: 1,
                       color: COLORS.textPrimary,
                       bgcolor: rowBgOverride ?? getCellBg(ci, altColumns, isSelected),
                     }}>
@@ -318,7 +320,8 @@ export default function DataTable({
                       borderBottom: `1px solid ${COLORS.tableBorder}`,
                       borderRight: `1px solid ${COLORS.tableBorder}`,
                       whiteSpace: 'nowrap',
-                      py: 0.5,
+                      py: 0.15,
+                      px: 0.75,
                     }} onClick={e => e.stopPropagation()}>
                       {actions(row)}
                     </TableCell>

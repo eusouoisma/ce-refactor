@@ -67,7 +67,7 @@ function SectionLabel({ children }) {
 // Consistent table header cell
 function TH({ children, align }) {
   return (
-    <TableCell align={align} sx={{ fontWeight: 700, bgcolor: '#f5f5f5', fontSize: '0.78rem', py: 0.75, whiteSpace: 'nowrap' }}>
+    <TableCell align={align} sx={{ fontWeight: 700, bgcolor: '#f5f5f5', fontSize: '0.62rem', py: 0.25, px: 1, whiteSpace: 'nowrap' }}>
       {children}
     </TableCell>
   );
