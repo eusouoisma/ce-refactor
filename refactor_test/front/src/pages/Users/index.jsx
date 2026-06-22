@@ -3,7 +3,7 @@ import {
   Box, Typography, Card, CardContent, Grid, TextField,
   Select, MenuItem, FormControl, InputLabel, Button,
   IconButton, Tooltip, Dialog, DialogTitle, DialogContent,
-  DialogActions,
+  DialogActions, Switch,
 } from '@mui/material';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -15,15 +15,7 @@ import DataTable from '../../components/DataTable';
 import { COLORS } from '../../utils/colors';
 import { PERMISSION_LABELS, isReadOnly } from '../../utils/permissions';
 
-const COLUMNS = [
-  { key: 'username',    label: 'Username' },
-  { key: 'name',        label: 'Nome' },
-  { key: 'email',       label: 'Email' },
-  { key: 'permissions', label: 'Permissão', render: (val) => PERMISSION_LABELS[Number(val)] ?? val },
-];
-
 const EMPTY_USER = { username: '', name: '', permissions: '1', password: '', email: '' };
-const EMPTY_EDIT = { id: null, username: '', name: '', email: '', permissions: '1', password: '' };
 
 export default function Users() {
   const { userPermissions } = useStore();
@@ -86,6 +78,34 @@ export default function Users() {
       load();
     }
   }
+
+  async function toggleTwofa(id, enabled) {
+    await apiFetch('/users/set-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ id, enabled }),
+    });
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, twofa_enabled: enabled } : u));
+  }
+
+  const columns = [
+    { key: 'username',    label: 'Username' },
+    { key: 'name',        label: 'Nome' },
+    { key: 'email',       label: 'Email' },
+    { key: 'permissions', label: 'Permissão', render: (val) => PERMISSION_LABELS[Number(val)] ?? val },
+    ...(isSuperAdmin ? [{
+      key: 'twofa_enabled',
+      label: '2FA',
+      render: (val, row) => (
+        <Switch
+          size="small"
+          checked={val !== false}
+          onChange={e => toggleTwofa(row.id, e.target.checked)}
+          onClick={e => e.stopPropagation()}
+          sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: COLORS.primary }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: COLORS.primary } }}
+        />
+      ),
+    }] : []),
+  ];
 
   const rowActions = (row) => (
     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
@@ -163,7 +183,7 @@ export default function Users() {
       )}
 
       <DataTable
-        columns={COLUMNS}
+        columns={columns}
         rows={users}
         loading={loading}
         altColumns

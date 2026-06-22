@@ -15,6 +15,11 @@ class UserService {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return { error: 'Username or password is wrong' };
 
+    if (user.twofa_enabled === false) {
+      const token = this.signToken({ userId: user.id, username: user.username, name: user.name, permissions: user.permissions });
+      return { error: false, token, permissions: user.permissions, name: user.name };
+    }
+
     if (!user.email) {
       return { error: 'Este usuário não tem email cadastrado. Contate o administrador.' };
     }
@@ -72,6 +77,11 @@ class UserService {
     } else {
       await this.userRepo.updateName(userId, name);
     }
+    return { error: false };
+  }
+
+  async setTwofaEnabled(id, enabled) {
+    await this.userRepo.setTwofaEnabled(id, enabled);
     return { error: false };
   }
 

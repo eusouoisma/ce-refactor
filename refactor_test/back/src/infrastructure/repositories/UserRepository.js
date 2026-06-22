@@ -5,7 +5,7 @@ class UserRepository {
 
   async findByUsername(username) {
     const res = await this.pool.query(
-      `SELECT id, username, name, permissions, password, email FROM users WHERE username = $1 AND deleted = 0`,
+      `SELECT id, username, name, permissions, password, email, twofa_enabled FROM users WHERE username = $1 AND deleted = 0`,
       [username]
     );
     return res.rows[0] || null;
@@ -101,9 +101,16 @@ class UserRepository {
     await this.pool.query(`DELETE FROM users WHERE id = $1`, [id]);
   }
 
+  async setTwofaEnabled(id, enabled) {
+    await this.pool.query(
+      `UPDATE users SET twofa_enabled = $1 WHERE id = $2`,
+      [enabled, id]
+    );
+  }
+
   async findAll() {
     const res = await this.pool.query(
-      `SELECT id, username, name, permissions, email FROM users WHERE deleted = 0`
+      `SELECT id, username, name, permissions, email, twofa_enabled FROM users WHERE deleted = 0`
     );
     return res.rows;
   }

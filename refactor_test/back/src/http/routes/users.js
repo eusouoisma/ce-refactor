@@ -37,6 +37,11 @@ router.post('/update', wrap(async (req, res) => {
   res.json(await userService.updateSelf(req.user.userId, { username, name, password }));
 }));
 
+router.post('/set-2fa', adminOnly, wrap(async (req, res) => {
+  const { id, enabled } = req.body;
+  res.json(await userService.setTwofaEnabled(id, enabled));
+}));
+
 router.post('/admin-update', adminOnly, wrap(async (req, res) => {
   const { id, username, name, email, permissions, password } = req.body;
   res.json(await userService.adminUpdateUser(id, { username, name, email, permissions, password }));
