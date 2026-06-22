@@ -18,7 +18,7 @@ function fmtDate(iso) {
 function HistoryTable({ entries, emptyMsg }) {
   if (!entries.length) {
     return (
-      <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.8rem', py: 2, textAlign: 'center' }}>
+      <Typography sx={{ color: COLORS.tableCellText, fontSize: '0.8rem', py: 2, textAlign: 'center' }}>
         {emptyMsg}
       </Typography>
     );
@@ -27,33 +27,48 @@ function HistoryTable({ entries, emptyMsg }) {
     <Table size="small" sx={{ tableLayout: 'auto' }}>
       <TableHead>
         <TableRow sx={{ bgcolor: COLORS.tableHeaderBg }}>
-          <TableCell sx={{ fontWeight: 600, fontSize: '0.62rem', color: COLORS.tableHeaderText, whiteSpace: 'nowrap', py: 0.5, px: 1.25 }}>Data/Hora</TableCell>
-          <TableCell sx={{ fontWeight: 600, fontSize: '0.62rem', color: COLORS.tableHeaderText, whiteSpace: 'nowrap', py: 0.5, px: 1.25 }}>Usuário</TableCell>
-          <TableCell sx={{ fontWeight: 600, fontSize: '0.62rem', color: COLORS.tableHeaderText, whiteSpace: 'nowrap', py: 0.5, px: 1.25 }}>Campo</TableCell>
+          <TableCell sx={{ fontWeight: 600, fontSize: '0.56rem', color: COLORS.tableHeaderText, whiteSpace: 'nowrap', textAlign: 'center', py: 0.5, px: 1.25 }}>Data/Hora</TableCell>
+          <TableCell sx={{ fontWeight: 600, fontSize: '0.56rem', color: COLORS.tableHeaderText, whiteSpace: 'nowrap', textAlign: 'center', py: 0.5, px: 1.25 }}>Usuário</TableCell>
+          <TableCell sx={{ fontWeight: 600, fontSize: '0.56rem', color: COLORS.tableHeaderText, whiteSpace: 'nowrap', textAlign: 'center', py: 0.5, px: 1.25 }}>Campo</TableCell>
           <TableCell sx={{ fontWeight: 600, fontSize: '0.62rem', color: COLORS.tableHeaderText, py: 0.5, px: 1.25 }}>De</TableCell>
           <TableCell sx={{ fontWeight: 600, fontSize: '0.62rem', color: COLORS.tableHeaderText, py: 0.5, px: 1.25 }}>Para</TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
-        {entries.map((e) => (
-          <TableRow key={e.id} sx={{ '&:hover': { bgcolor: COLORS.tableHover } }}>
-            <TableCell sx={{ fontSize: '0.68rem', py: 0.4, px: 1.25, color: COLORS.textSecondary, whiteSpace: 'nowrap' }}>
-              {fmtDate(e.editedAt)}
-            </TableCell>
-            <TableCell sx={{ fontSize: '0.68rem', py: 0.4, px: 1.25, whiteSpace: 'nowrap', fontWeight: 600 }}>
-              {e.editedBy}
-            </TableCell>
-            <TableCell sx={{ fontSize: '0.68rem', py: 0.4, px: 1.25, whiteSpace: 'nowrap' }}>
-              <Chip label={e.fieldLabel} size="small" sx={{ fontSize: '0.6rem', height: 18, bgcolor: `${COLORS.primary}18`, color: COLORS.primary, fontWeight: 600 }} />
-            </TableCell>
-            <TableCell sx={{ fontSize: '0.68rem', py: 0.4, px: 1.25, color: COLORS.textSecondary, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {e.oldValue || <em style={{ color: '#bbb' }}>vazio</em>}
-            </TableCell>
-            <TableCell sx={{ fontSize: '0.68rem', py: 0.4, px: 1.25, color: COLORS.textPrimary, fontWeight: 600, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {e.newValue || <em style={{ color: '#bbb' }}>vazio</em>}
-            </TableCell>
-          </TableRow>
-        ))}
+        {entries.map((e) => {
+          if (e.fieldName === '__created__') return (
+            <TableRow key={e.id} sx={{ '&:hover': { bgcolor: COLORS.tableHover } }}>
+              <TableCell sx={{ fontSize: '0.61rem', py: 0.4, px: 1.25, textAlign: 'center', color: COLORS.tableCellText, whiteSpace: 'nowrap' }}>
+                {fmtDate(e.editedAt)}
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.61rem', py: 0.4, px: 1.25, textAlign: 'center', color: COLORS.tableCellText, whiteSpace: 'nowrap', fontWeight: 600 }}>
+                {e.editedBy}
+              </TableCell>
+              <TableCell colSpan={3} sx={{ py: 0.4, px: 1.25, textAlign: 'center' }}>
+                <Chip label="Tour criado" size="small" sx={{ fontSize: '0.6rem', height: 18, bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }} />
+              </TableCell>
+            </TableRow>
+          );
+          return (
+            <TableRow key={e.id} sx={{ '&:hover': { bgcolor: COLORS.tableHover } }}>
+              <TableCell sx={{ fontSize: '0.61rem', py: 0.4, px: 1.25, textAlign: 'center', color: COLORS.tableCellText,  whiteSpace: 'nowrap' }}>
+                {fmtDate(e.editedAt)}
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.61rem', py: 0.4, px: 1.25, textAlign: 'center',  color: COLORS.tableCellText, whiteSpace: 'nowrap', fontWeight: 600 }}>
+                {e.editedBy}
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.61rem', py: 0.4, px: 1.25, textAlign: 'center',  color: COLORS.tableCellText, whiteSpace: 'nowrap' }}>
+                <Chip label={e.fieldLabel} size="small" sx={{ fontSize: '0.6rem', height: 18, bgcolor: `${COLORS.primary}18`, color: COLORS.primary, fontWeight: 600 }} />
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.61rem', py: 0.4, px: 1.25, textAlign: 'center',  color: COLORS.tableCellText, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {e.oldValue || <em style={{ color: '#bbb' }}>vazio</em>}
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.61rem', py: 0.4, px: 1.25, textAlign: 'center',  color: COLORS.tableCellText, fontWeight: 600, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {e.newValue || <em style={{ color: '#bbb' }}>vazio</em>}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -107,7 +122,7 @@ export default function TourHistoryDialog({ open, tourId, onClose, showFinancial
         )}
       </DialogContent>
       <DialogActions sx={{ px: 2, py: 1 }}>
-        <Button onClick={onClose} variant="text" sx={{ color: COLORS.textSecondary }}>Fechar</Button>
+        <Button onClick={onClose} variant="text" sx={{ color: COLORS.tableCellText }}>Fechar</Button>
       </DialogActions>
     </Dialog>
   );

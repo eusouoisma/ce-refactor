@@ -5,14 +5,18 @@ import {
   Button, Checkbox, FormControlLabel,
   ToggleButton, ToggleButtonGroup,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  IconButton, Divider, Chip,
+  IconButton, Divider, Chip, Grid,
+  Select, MenuItem, FormControl, InputLabel,
 } from '@mui/material';
 import { NumericFormat } from 'react-number-format';
 import Swal from 'sweetalert2';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
+import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
+import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 import { calcVariantValue, selectVariant } from '../../utils/functions';
 import { COLORS } from '../../utils/colors';
 
@@ -25,8 +29,8 @@ const PAX_TYPES = [
 ];
 
 const defaultForm = {
-  type: 'regular', orderRef: '', platform: '', activity: '', adicional: '', duration: '',
-  tourDate: '', tourHour: '', local: '', status: '', language: '', client: '', newCustomerType: '',
+  type: 'regular', clientType: 'b2b', orderRef: '', platform: '', activity: '', adicional: '', duration: '',
+  tourDate: '', tourHour: '', local: '', status: '', language: '', client: '',
   paxAdult: 0, paxHalf: 0, paxFree: 0, paxNet: 0, paxBrazilian: 0,
   currency: '', paymentMethod: '', paymentStatus: '', totalValue: '', numberOfGroups: 0,
   ceGuide: [], clientName: '', clientContact: '', country: [], emailSubject: '',
@@ -115,7 +119,8 @@ function PaxCounter({ label, value, onChange, sublabel }) {
 export default function TourInput() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userName } = useStore();
+  const { userName, userPermissions } = useStore();
+  const readOnly = isReadOnly(userPermissions);
   const planneId    = location.state?.planneId   || null;
   const planneData  = location.state?.planneData || null;
   const [form, setForm] = useState(() =>
@@ -136,6 +141,13 @@ export default function TourInput() {
   const [blockUpdateTotalValue, setBlockUpdateTotalValue]         = useState(!!planneData);
   const [blockUpdateNumberOfGroups, setBlockUpdateNumberOfGroups] = useState(!!planneData);
   const [durationManuallyEdited, setDurationManuallyEdited]       = useState(false);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [recurrence, setRecurrence] = useState({ interval: 1, unit: 'week', days: [], endDate: '' });
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({ companyName: '', customerType: 'Agência' });
+  const [customerTypes, setCustomerTypes] = useState([]);
+  const [newContactOpen, setNewContactOpen] = useState(false);
+  const [newContactForm, setNewContactForm] = useState({ firstName: '', lastName: '', role: '', email: '', whatsapp: '' });
 
   useEffect(() => {
     const paths = [
@@ -150,9 +162,10 @@ export default function TourInput() {
       '/settings/guides',
       '/customers/list-grouped',
       '/settings/countries',
+      '/settings/customer-types',
     ];
     Promise.all(paths.map(p => apiFetch(p).then(r => r.json())))
-      .then(([pl, pr, la, st, cu, pm, ps, lo, gu, cust, co]) => {
+      .then(([pl, pr, la, st, cu, pm, ps, lo, gu, cust, co, ct]) => {
         setPlatforms(pl.map ? pl.map(x => x.value) : []);
         setProducts(pr.map ? pr : []);
         setLanguages(la.map ? la.map(x => x.value) : []);
@@ -164,6 +177,7 @@ export default function TourInput() {
         setGuides(gu.map ? gu.map(x => x.value) : []);
         setCustomers(cust.map ? cust : []);
         setCountries(co.map ? co.map(x => x.value) : []);
+        setCustomerTypes(ct.map ? ct.map(x => x.value) : []);
       });
   }, []);
 
@@ -231,6 +245,7 @@ export default function TourInput() {
   }
 
   async function handleSubmit(andNew = false) {
+    if (readOnly) return;
     const payload = {
       ...form,
       country: Array.isArray(form.country) ? form.country.join(', ') : form.country,
@@ -256,6 +271,66 @@ export default function TourInput() {
     }
   }
 
+  async function handleSaveRecurrence() {
+    if (readOnly) return;
+    if (!form.tourDate) { Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Defina a data do tour antes de criar recorrência.', customClass: { container: 'swal-on-top' } }); return; }
+    if (!recurrence.endDate) { Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Informe a data final da recorrência.', customClass: { container: 'swal-on-top' } }); return; }
+    if (recurrence.unit === 'week' && recurrence.days.length === 0) { Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Selecione ao menos um dia da semana.', customClass: { container: 'swal-on-top' } }); return; }
+
+    const payload = {
+      ...form,
+      country: Array.isArray(form.country) ? form.country.join(', ') : form.country,
+      createdBy: userName,
+      lastEditBy: userName,
+    };
+    const res  = await apiFetch('/tours/create-recurrence', { method: 'POST', body: JSON.stringify({ tourData: payload, recurrence }) });
+    const data = await res.json();
+    if (data.error) {
+      Swal.fire({ icon: 'error', title: 'Erro', text: data.message || 'Erro ao criar recorrência', customClass: { container: 'swal-on-top' } });
+    } else {
+      setRecurrenceOpen(false);
+      await Swal.fire({ icon: 'success', title: `${data.count} tour${data.count !== 1 ? 's' : ''} criado${data.count !== 1 ? 's' : ''} com sucesso!` });
+      navigate('/listar-tours');
+    }
+  }
+
+  async function handleSaveNewClient() {
+    if (!newClientForm.companyName.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Informe o nome da empresa', customClass: { container: 'swal-on-top' } });
+      return;
+    }
+    if (!newClientForm.customerType) {
+      Swal.fire({ icon: 'warning', title: 'Selecione o tipo do cliente', customClass: { container: 'swal-on-top' } });
+      return;
+    }
+    const res = await apiFetch('/customers/create', { method: 'POST', body: JSON.stringify({ ...newClientForm, createdBy: userName, lastEditBy: userName }) });
+    const data = await res.json();
+    if (data.error) { Swal.fire('Erro', data.message || 'Erro', 'error'); return; }
+    const refreshed = await apiFetch('/customers/list-grouped').then(r => r.json());
+    setCustomers(refreshed.map ? refreshed : []);
+    setForm(p => ({ ...p, client: newClientForm.companyName, clientName: '', clientContact: '' }));
+    setNewClientOpen(false);
+    setNewClientForm({ companyName: '', customerType: 'Agência' });
+  }
+
+  async function handleSaveNewContact() {
+    if (!form.client) return;
+    const customer = customers.find(c => c.name === form.client);
+    if (!customer) return;
+    const res = await apiFetch('/customers/add-contact', {
+      method: 'POST',
+      body: JSON.stringify({ customerId: customer.id, ...newContactForm, createdBy: userName, lastEditBy: userName }),
+    });
+    const data = await res.json();
+    if (data.error) { Swal.fire('Erro', data.message || 'Erro', 'error'); return; }
+    const refreshed = await apiFetch('/customers/list-grouped').then(r => r.json());
+    setCustomers(refreshed.map ? refreshed : []);
+    const fullName = [newContactForm.firstName, newContactForm.lastName].filter(Boolean).join(' ');
+    setForm(p => ({ ...p, clientName: fullName, clientContact: newContactForm.email || newContactForm.whatsapp || '' }));
+    setNewContactOpen(false);
+    setNewContactForm({ firstName: '', lastName: '', role: '', email: '', whatsapp: '' });
+  }
+
   // Atividades filtradas pelo tipo de tour selecionado
   const uniqueActivities = [...new Set(
     products.filter(p => p.category !== 'adicional' && p.type === form.type).map(p => p.name)
@@ -264,9 +339,11 @@ export default function TourInput() {
     products.filter(p => p.category === 'adicional').map(p => p.name)
   )];
   const clientContacts  = customers.find(c => c.name === form.client)?.contacts || [];
+  const clientContactNames = clientContacts.map(c => [c.firstName, c.lastName].filter(Boolean).join(' '));
   const totalPaxCount   = PAX_TYPES.reduce((s, p) => s + (parseInt(form[p.key]) || 0), 0);
   const isShowEvento    = form.type === 'show/evento';
   const isPrivativo     = form.type === 'privativo';
+  const isB2B           = form.clientType === 'b2b';
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -497,22 +574,88 @@ export default function TourInput() {
           {/* ── Cliente e Guias ── */}
           <Section label="Cliente e Guias" color="#0086c0">
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.75 }}>
-                <Autocomplete freeSolo options={customers.map(c => c.name)} value={form.client}
-                  onInputChange={(_, v) => set('client', v)}
-                  renderInput={p => <TextField {...p} size="small" label="Cliente" />} />
-                <Autocomplete freeSolo
-                  options={clientContacts.map(c => c.contactName || '')}
-                  value={form.clientName}
-                  onInputChange={(_, v) => {
-                    set('clientName', v);
-                    const contact = clientContacts.find(c => c.contactName === v);
-                    if (contact) set('clientContact', contact.contactEmail || '');
+
+              {/* Toggle B2B / B2C */}
+              <Box>
+                <ToggleButtonGroup
+                  value={form.clientType} exclusive size="small"
+                  onChange={(_, v) => { if (v) setForm(p => ({ ...p, clientType: v, client: '', clientName: '', clientContact: '' })); }}
+                  sx={{
+                    '& .MuiToggleButton-root': {
+                      px: 2.5, py: 0.7,
+                      fontSize: '0.82rem', fontWeight: 600,
+                      fontFamily: '"Poppins", sans-serif',
+                      color: COLORS.textSecondary,
+                      borderColor: COLORS.border,
+                      textTransform: 'none',
+                      transition: 'all 0.15s',
+                      '&.Mui-selected': {
+                        bgcolor: COLORS.primary, color: '#fff', borderColor: COLORS.primary,
+                        '&:hover': { bgcolor: COLORS.primaryDark },
+                      },
+                      '&:not(.Mui-selected):hover': { bgcolor: COLORS.primaryAlpha, color: COLORS.primary },
+                    },
                   }}
-                  renderInput={p => <TextField {...p} size="small" label="Nome do Cliente" />} />
-                <TextField fullWidth size="small" label="Contato do Cliente"
-                  value={form.clientContact} onChange={e => set('clientContact', e.target.value)} />
+                >
+                  <ToggleButton value="b2b">B2B</ToggleButton>
+                  <ToggleButton value="b2c">B2C</ToggleButton>
+                </ToggleButtonGroup>
               </Box>
+
+              {/* B2B: selects com search + botões para adicionar */}
+              {isB2B && (
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>
+                    <Autocomplete
+                      options={customers.map(c => c.name)}
+                      value={form.client || null}
+                      onChange={(_, v) => setForm(p => ({ ...p, client: v || '', clientName: '', clientContact: '' }))}
+                      renderInput={p => <TextField {...p} size="small" label="Cliente" />}
+                    />
+                  </Box>
+                  <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>
+                    <Autocomplete
+                      options={clientContactNames}
+                      value={form.clientName || null}
+                      disabled={!form.client}
+                      onChange={(_, v) => {
+                        setForm(p => ({ ...p, clientName: v || '' }));
+                        const contact = clientContacts.find(c => [c.firstName, c.lastName].filter(Boolean).join(' ') === v);
+                        if (contact) set('clientContact', contact.email || contact.whatsapp || '');
+                      }}
+                      renderInput={p => <TextField {...p} size="small" label="Nome do Cliente" />}
+                    />
+                  </Box>
+                  <Box sx={{ flex: '1 1 180px', minWidth: 0 }}>
+                    <TextField fullWidth size="small" label="Contato"
+                      value={form.clientContact} onChange={e => set('clientContact', e.target.value)} />
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.75, pt: 0.5 }}>
+                    <Button size="small" variant="outlined" startIcon={<BusinessRoundedIcon />}
+                      onClick={() => { setNewClientForm({ companyName: '', customerType: 'Agência' }); setNewClientOpen(true); }}
+                      sx={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                      Novo Cliente
+                    </Button>
+                    <Button size="small" variant="outlined" startIcon={<PersonAddRoundedIcon />}
+                      disabled={!form.client}
+                      onClick={() => { setNewContactForm({ firstName: '', lastName: '', role: '', email: '', whatsapp: '' }); setNewContactOpen(true); }}
+                      sx={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                      Novo Contato
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+
+              {/* B2C: nome do cliente e contato como campos livres */}
+              {!isB2B && (
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.75 }}>
+                  <TextField fullWidth size="small" label="Nome do Cliente"
+                    value={form.clientName} onChange={e => set('clientName', e.target.value)} />
+                  <TextField fullWidth size="small" label="Contato do Cliente"
+                    value={form.clientContact} onChange={e => set('clientContact', e.target.value)} />
+                </Box>
+              )}
+
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.75 }}>
                 <TextField fullWidth size="small" label="Nome do Guia"
                   value={form.companionName} onChange={e => set('companionName', e.target.value)} />
@@ -561,16 +704,114 @@ export default function TourInput() {
         px: 3.5, py: 2, display: 'flex', gap: 1.5, alignItems: 'center',
         bgcolor: '#fff',
       }}>
-        <Button variant="contained" onClick={() => handleSubmit(false)} sx={{ px: 3.5 }}>
+        <Button variant="contained" onClick={() => handleSubmit(false)} disabled={readOnly} sx={{ px: 3.5 }}>
           Salvar
         </Button>
-        <Button variant="outlined" onClick={() => handleSubmit(true)}>
+        <Button variant="outlined" onClick={() => handleSubmit(true)} disabled={readOnly}>
           Salvar e Criar Outro
+        </Button>
+        <Button variant="outlined" onClick={() => setRecurrenceOpen(true)} disabled={readOnly} sx={{ color: '#7b1fa2', borderColor: '#7b1fa2', '&:hover': { borderColor: '#6a0080', bgcolor: 'rgba(123,31,162,0.06)' } }}>
+          Criar Recorrência
         </Button>
         <Button variant="text" sx={{ color: COLORS.textSecondary }} onClick={() => navigate('/listar-tours')}>
           Cancelar
         </Button>
       </Box>
+
+      {/* ── Modal de recorrência ── */}
+      <Dialog open={recurrenceOpen} onClose={() => setRecurrenceOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', pb: 1 }}>
+          Recorrência personalizada
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 0.5 }}>
+
+            {/* Repetir a cada */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography sx={{ fontSize: '0.9rem', whiteSpace: 'nowrap' }}>Repetir a cada:</Typography>
+              <TextField
+                type="number" size="small" sx={{ width: 72 }}
+                inputProps={{ min: 1 }}
+                value={recurrence.interval}
+                onChange={e => setRecurrence(p => ({ ...p, interval: Math.max(1, parseInt(e.target.value) || 1) }))}
+              />
+              <TextField
+                select size="small" sx={{ width: 120 }}
+                value={recurrence.unit}
+                onChange={e => setRecurrence(p => ({ ...p, unit: e.target.value, days: [] }))}
+                SelectProps={{ native: true }}
+              >
+                <option value="day">Dia</option>
+                <option value="week">Semana</option>
+              </TextField>
+            </Box>
+
+            {/* Repetir nos dias (só semana) */}
+            {recurrence.unit === 'week' && (
+              <Box>
+                <Typography sx={{ fontSize: '0.9rem', mb: 1 }}>Repetir nos dias:</Typography>
+                <Box sx={{ display: 'flex', gap: 0.75 }}>
+                  {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map((label, idx) => {
+                    const selected = recurrence.days.includes(idx);
+                    return (
+                      <Box
+                        key={idx}
+                        onClick={() => setRecurrence(p => ({
+                          ...p,
+                          days: selected ? p.days.filter(d => d !== idx) : [...p.days, idx],
+                        }))}
+                        sx={{
+                          width: 44, height: 34, borderRadius: '8px', border: '2px solid',
+                          borderColor: selected ? COLORS.primary : 'rgba(0,0,0,0.25)',
+                          bgcolor: selected ? COLORS.primary : 'transparent',
+                          color: selected ? '#fff' : 'text.secondary',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                          transition: 'all 0.15s',
+                          '&:hover': { borderColor: COLORS.primary, opacity: 0.85 },
+                        }}
+                      >
+                        {label}
+                      </Box>
+                    );
+                  })}
+                </Box>
+                <FormControlLabel
+                  sx={{ mt: 1 }}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={recurrence.days.length === 7}
+                      onChange={e => setRecurrence(p => ({ ...p, days: e.target.checked ? [0,1,2,3,4,5,6] : [] }))}
+                    />
+                  }
+                  label={<Typography sx={{ fontSize: '0.9rem' }}>Todos</Typography>}
+                />
+              </Box>
+            )}
+
+            {/* Até */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography sx={{ fontSize: '0.9rem', whiteSpace: 'nowrap' }}>Até:</Typography>
+              <TextField
+                type="date" size="small" fullWidth
+                value={recurrence.endDate}
+                onChange={e => setRecurrence(p => ({ ...p, endDate: e.target.value }))}
+                inputProps={{ min: form.tourDate || '' }}
+              />
+            </Box>
+
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, pb: 2 }}>
+          <Button variant="outlined" color="inherit" onClick={() => setRecurrenceOpen(false)}>
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={handleSaveRecurrence}>
+            Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Modal de comissão ── */}
       <Dialog open={commissionModal} onClose={() => setCommissionModal(false)} maxWidth="sm" fullWidth>
@@ -611,6 +852,68 @@ export default function TourInput() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setCommissionModal(false)} variant="contained">Confirmar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Modal Novo Cliente ── */}
+      <Dialog open={newClientOpen} onClose={() => setNewClientOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', pb: 1 }}>Novo Cliente</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <TextField fullWidth size="small" label="Nome *" autoFocus
+              value={newClientForm.companyName}
+              onChange={e => setNewClientForm(p => ({ ...p, companyName: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && handleSaveNewClient()} />
+            <FormControl fullWidth size="small">
+              <InputLabel>Tipo</InputLabel>
+              <Select value={newClientForm.customerType} label="Tipo"
+                onChange={e => setNewClientForm(p => ({ ...p, customerType: e.target.value }))}>
+                <MenuItem value=""><em>—</em></MenuItem>
+                {customerTypes.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, pb: 2 }}>
+          <Button variant="outlined" color="inherit" onClick={() => setNewClientOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleSaveNewClient}>Adicionar ao CRM</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Modal Novo Contato ── */}
+      <Dialog open={newContactOpen} onClose={() => setNewContactOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', pb: 1 }}>
+          Novo Contato — {form.client}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              <TextField fullWidth size="small" label="Nome" autoFocus
+                value={newContactForm.firstName}
+                onChange={e => setNewContactForm(p => ({ ...p, firstName: e.target.value }))} />
+              <TextField fullWidth size="small" label="Sobrenome"
+                value={newContactForm.lastName}
+                onChange={e => setNewContactForm(p => ({ ...p, lastName: e.target.value }))} />
+            </Box>
+            <TextField fullWidth size="small" label="Função"
+              value={newContactForm.role}
+              onChange={e => setNewContactForm(p => ({ ...p, role: e.target.value }))} />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              <TextField fullWidth size="small" label="E-mail"
+                value={newContactForm.email}
+                onChange={e => setNewContactForm(p => ({ ...p, email: e.target.value }))} />
+              <TextField fullWidth size="small" label="WhatsApp"
+                value={newContactForm.whatsapp}
+                onChange={e => setNewContactForm(p => ({ ...p, whatsapp: e.target.value }))} />
+            </Box>
+            <TextField fullWidth size="small" label="Observações" multiline rows={2}
+              value={newContactForm.notes}
+              onChange={e => setNewContactForm(p => ({ ...p, notes: e.target.value }))} />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, pb: 2 }}>
+          <Button variant="outlined" color="inherit" onClick={() => setNewContactOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleSaveNewContact}>Adicionar ao CRM</Button>
         </DialogActions>
       </Dialog>
 

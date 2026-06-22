@@ -1,22 +1,49 @@
 const { formatDate } = require('../../shared/db');
 
+// Columns stored as JSON array of {name, value, ...} — filter/display on .name
+const JSON_ARRAY_COL_KEYS = new Set(['adicional']);
+// Columns stored as comma-separated string — explode on filter
+const CSV_COL_KEYS = new Set(['ceGuide', 'guides']);
+// Integer/numeric columns — use numeric IN clause and numeric ORDER BY
+const NUMERIC_COL_KEYS = new Set(['paxAdult', 'paxNet', 'paxBrazilian', 'paxHalf', 'paxFree', '_paxTotal', 'groups']);
+// Boolean 0/1 columns — display as 'Não'/'Sim', reverse-map on filter
+const BOOL_MAP_COL_KEYS = new Set(['commissioned']);
+// Nullable-presence columns — non-null='Recorrente', null='Não recorrente'
+const PRESENCE_COL_KEYS = new Set(['recurrenceId']);
+
 const FILTERABLE_TOUR_COLS = {
-  status:           't.status',
-  formatedTourDate: "TO_CHAR(t.\"tourDate\", 'DD/MM/YYYY')",
-  tourHour:         't."tourHour"',
-  activity:         't.activity',
-  adicional:        't.adicional',
-  language:         't.language',
-  client:           't.client',
-  orderRef:         't."orderRef"',
-  ceGuide:          't."ceGuide"',
-  currency:         't.currency',
-  paymentMethod:    't."paymentMethod"',
-  paymentStatus:    't."paymentStatus"',
-  companionName:    't."companionName"',
-  local:            't.local',
-  platform:         't.platform',
-  country:          't.country',
+  status:                    't.status',
+  formatedTourDate:          "TO_CHAR(t.\"tourDate\", 'DD/MM/YYYY')",
+  tourHour:                  't."tourHour"',
+  activity:                  't.activity',
+  adicional:                 't.adicional',
+  language:                  't.language',
+  client:                    't.client',
+  orderRef:                  't."orderRef"',
+  ceGuide:                   't."ceGuide"',
+  currency:                  't.currency',
+  paymentMethod:             't."paymentMethod"',
+  paymentStatus:             't."paymentStatus"',
+  companionName:             't."companionName"',
+  local:                     't.local',
+  platform:                  't.platform',
+  country:                   't.country',
+  clientName:                't."clientName"',
+  clientContact:             't."clientContact"',
+  companionContact:          't."companionContact"',
+  emailSubject:              't."emailSubject"',
+  dateOfRegistrationFormated:"TO_CHAR(t.\"dateOfRegistration\", 'DD/MM/YYYY')",
+  createdBy:                 't."createdBy"',
+  lastEditBy:                't."lastEditBy"',
+  paxAdult:                  't."paxAdult"',
+  paxNet:                    't."paxNet"',
+  paxBrazilian:              't."paxBrazilian"',
+  paxHalf:                   't."paxHalf"',
+  paxFree:                   't."paxFree"',
+  _paxTotal:                 '(t."paxAdult" + t."paxHalf" + t."paxFree" + t."paxNet" + t."paxBrazilian")',
+  groups:                    't."numberOfGroups"',
+  commissioned:              't.commissioned',
+  recurrenceId:              't."recurrenceId"',
 };
 
 const FILTERABLE_SUMMARY_COLS = {
@@ -69,6 +96,136 @@ class TourRepository {
     return `${dbCol} IN (${ph})`;
   }
 
+  _buildJsonArrayClause(dbCol, values, params) {
+    const hasBlank = values.includes('__VAZIO__');
+    const nonBlank = values.filter(v => v !== '__VAZIO__');
+    const blankSQL = `(${dbCol} IS NULL OR ${dbCol} = '' OR ${dbCol} = '[]')`;
+    let jsonSQL = null;
+    if (nonBlank.length > 0) {
+      const ph = nonBlank.map((_, i) => `$${params.length + i + 1}`).join(', ');
+      params.push(...nonBlank);
+      jsonSQL = `EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN ${dbCol} IS NULL OR ${dbCol} = '' THEN '[]'::jsonb ELSE ${dbCol}::jsonb END) _jae WHERE _jae->>'name' IN (${ph}))`;
+    }
+    if (hasBlank && jsonSQL) return `(${jsonSQL} OR ${blankSQL})`;
+    if (hasBlank) return blankSQL;
+    return jsonSQL;
+  }
+
+  _buildCsvClause(dbCol, values, params) {
+    const hasBlank = values.includes('__VAZIO__');
+    const nonBlank = values.filter(v => v !== '__VAZIO__');
+    const blankSQL = `COALESCE(${dbCol}, '') = ''`;
+    let csvSQL = null;
+    if (nonBlank.length > 0) {
+      const ph = nonBlank.map((_, i) => `$${params.length + i + 1}`).join(', ');
+      params.push(...nonBlank);
+      csvSQL = `EXISTS(SELECT 1 FROM regexp_split_to_table(COALESCE(${dbCol}, ''), ',') _csv WHERE TRIM(_csv) IN (${ph}))`;
+    }
+    if (hasBlank && csvSQL) return `(${csvSQL} OR ${blankSQL})`;
+    if (hasBlank) return blankSQL;
+    return csvSQL;
+  }
+
+  _extractJsonArrayOptions(rows) {
+    const names = new Set();
+    let hasBlank = false;
+    for (const row of rows) {
+      const v = row.value;
+      if (!v || v === '[]') { hasBlank = true; continue; }
+      try {
+        const arr = JSON.parse(v);
+        if (Array.isArray(arr)) {
+          for (const item of arr) {
+            if (item && typeof item === 'object' && item.name) names.add(item.name);
+            else if (typeof item === 'string' && item) names.add(item);
+          }
+        }
+      } catch {}
+    }
+    const sorted = [...names].sort((a, b) => a.localeCompare(b));
+    return hasBlank ? ['__VAZIO__', ...sorted] : sorted;
+  }
+
+  _extractCsvOptions(rows) {
+    const names = new Set();
+    let hasBlank = false;
+    for (const row of rows) {
+      const v = row.value;
+      if (!v) { hasBlank = true; continue; }
+      const parts = v.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length === 0) { hasBlank = true; continue; }
+      for (const p of parts) names.add(p);
+    }
+    const sorted = [...names].sort((a, b) => a.localeCompare(b));
+    return hasBlank ? ['__VAZIO__', ...sorted] : sorted;
+  }
+
+  _buildNumericClause(dbCol, values, params) {
+    const nums = values.filter(v => v !== '__VAZIO__' && v !== '' && !isNaN(v));
+    if (!nums.length) return null;
+    const ph = nums.map((_, i) => `$${params.length + i + 1}`).join(', ');
+    params.push(...nums.map(Number));
+    return `${dbCol} IN (${ph})`;
+  }
+
+  _buildBoolMapClause(dbCol, values, params) {
+    const mapped = values
+      .filter(v => v !== '__VAZIO__')
+      .map(v => v === 'Sim' ? 1 : v === 'Não' ? 0 : null)
+      .filter(v => v !== null);
+    if (!mapped.length) return null;
+    const ph = mapped.map((_, i) => `$${params.length + i + 1}`).join(', ');
+    params.push(...mapped);
+    return `${dbCol} IN (${ph})`;
+  }
+
+  _buildPresenceClause(dbCol, values) {
+    const hasPresent = values.includes('Recorrente');
+    const hasAbsent  = values.includes('Não recorrente');
+    if (hasPresent && hasAbsent) return null;
+    if (hasPresent) return `(${dbCol} IS NOT NULL AND ${dbCol} != '')`;
+    if (hasAbsent)  return `(${dbCol} IS NULL OR ${dbCol} = '')`;
+    return null;
+  }
+
+  _selectExprForOptions(colKey, dbCol) {
+    if (NUMERIC_COL_KEYS.has(colKey))  return `CAST(${dbCol} AS TEXT)`;
+    if (BOOL_MAP_COL_KEYS.has(colKey)) return `CAST(${dbCol} AS TEXT)`;
+    if (PRESENCE_COL_KEYS.has(colKey)) return `CASE WHEN (${dbCol} IS NOT NULL AND ${dbCol} != '') THEN 'Recorrente' ELSE 'Não recorrente' END`;
+    return `COALESCE(${dbCol}, '')`;
+  }
+
+  _orderByForOptions(colKey) {
+    if (NUMERIC_COL_KEYS.has(colKey)) return `CAST(NULLIF(value, '') AS BIGINT) ASC NULLS LAST`;
+    return `value ASC`;
+  }
+
+  _wrapForOptions(colKey, innerSQL) {
+    if (NUMERIC_COL_KEYS.has(colKey)) return `SELECT value FROM (${innerSQL}) _opts`;
+    return innerSQL;
+  }
+
+  _extractOptions(colKey, rows) {
+    if (JSON_ARRAY_COL_KEYS.has(colKey)) return this._extractJsonArrayOptions(rows);
+    if (CSV_COL_KEYS.has(colKey))        return this._extractCsvOptions(rows);
+    if (NUMERIC_COL_KEYS.has(colKey))    return rows.map(r => r.value).filter(Boolean);
+    if (BOOL_MAP_COL_KEYS.has(colKey)) {
+      const map = { '0': 'Não', '1': 'Sim' };
+      return [...new Set(rows.map(r => map[r.value] ?? r.value))].sort();
+    }
+    if (PRESENCE_COL_KEYS.has(colKey)) return rows.map(r => r.value);
+    return rows.map(r => r.value === '' ? '__VAZIO__' : r.value);
+  }
+
+  _dispatchClause(colKey, dbCol, values, params) {
+    if (JSON_ARRAY_COL_KEYS.has(colKey))  return this._buildJsonArrayClause(dbCol, values, params);
+    if (CSV_COL_KEYS.has(colKey))          return this._buildCsvClause(dbCol, values, params);
+    if (NUMERIC_COL_KEYS.has(colKey))      return this._buildNumericClause(dbCol, values, params);
+    if (BOOL_MAP_COL_KEYS.has(colKey))     return this._buildBoolMapClause(dbCol, values, params);
+    if (PRESENCE_COL_KEYS.has(colKey))     return this._buildPresenceClause(dbCol, values);
+    return this._buildColClause(dbCol, values, params);
+  }
+
   _buildFilterClauses(filters, whitelist, params) {
     const clauses = [];
     for (const [key, rawVal] of Object.entries(filters || {})) {
@@ -78,12 +235,13 @@ class TourRepository {
       if (!dbCol) continue;
       const values = decodeURIComponent(rawVal).split('|').map(v => v.trim()).filter(v => v !== '');
       if (!values.length) continue;
-      clauses.push(this._buildColClause(dbCol, values, params));
+      const clause = this._dispatchClause(colKey, dbCol, values, params);
+      if (clause) clauses.push(clause);
     }
     return clauses;
   }
 
-  async insert(t, year, dayOrderId, tx, planneId = null) {
+  async insert(t, year, dayOrderId, tx, planneId = null, recurrenceId = null) {
     const db = this._db(tx);
     const res = await db.query(
       `INSERT INTO tour (type, "orderRef", platform, activity, adicional, duration, "tourDate", "tourHour",
@@ -91,9 +249,9 @@ class TourRepository {
        currency, "paymentMethod", "totalValue", "numberOfGroups", "ceGuide", "clientName", "clientContact",
        country, "emailSubject", "companionName", "companionContact", commissioned, comments,
        "conversationHistory", "paymentStatus", "financialComments", year, "dateOfRegistration",
-       "createdBy", "lastEditBy", origin, "dayOrderId", "isHighSeason", "planneId")
+       "createdBy", "lastEditBy", origin, "dayOrderId", "isHighSeason", "planneId", "recurrenceId")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,
-               $25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41)
+               $25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42)
        RETURNING id`,
       [
         t.type, t.orderRef, t.platform, t.activity, t.adicional, t.duration,
@@ -104,6 +262,7 @@ class TourRepository {
         t.companionName, t.companionContact, t.commissioned, t.comments,
         t.conversationHistory, t.paymentStatus, '', year, t.dateOfRegistration,
         t.createdBy, t.lastEditBy, 'office', dayOrderId, t.isHighSeason, planneId || null,
+        recurrenceId || null,
       ]
     );
     return res.rows[0].id;
@@ -390,7 +549,13 @@ class TourRepository {
          ORDER BY value ASC`,
         params
       );
-      result[key] = res.rows.map(r => r.value === '' ? '__VAZIO__' : r.value);
+      if (JSON_ARRAY_COL_KEYS.has(key)) {
+        result[key] = this._extractJsonArrayOptions(res.rows);
+      } else if (CSV_COL_KEYS.has(key)) {
+        result[key] = this._extractCsvOptions(res.rows);
+      } else {
+        result[key] = res.rows.map(r => r.value === '' ? '__VAZIO__' : r.value);
+      }
     }));
     return result;
   }
@@ -697,7 +862,8 @@ class TourRepository {
       if (!dbCol) continue;
       const values = decodeURIComponent(rawVal).split('|').map(v => v.trim()).filter(v => v !== '');
       if (!values.length) continue;
-      clauses.push(this._buildColClause(dbCol, values, params));
+      const clause = this._dispatchClause(colKey, dbCol, values, params);
+      if (clause) clauses.push(clause);
     }
     return clauses;
   }
@@ -714,17 +880,19 @@ class TourRepository {
       const params = [year, ...monthsArr];
       const clauses = this._buildFilterClausesExcluding(filters, FILTERABLE_TOUR_COLS, key, params);
       const filterSQL = clauses.length ? 'AND ' + clauses.join(' AND ') : '';
-      const res = await this.pool.query(
-        `SELECT DISTINCT COALESCE(${col}, '') AS value
+      const selectExpr = this._selectExprForOptions(key, col);
+      const orderBy   = this._orderByForOptions(key);
+      const innerSQL  = `SELECT DISTINCT ${selectExpr} AS value
          FROM tour t
          WHERE EXTRACT(YEAR FROM t."tourDate") = $1
            AND EXTRACT(MONTH FROM t."tourDate") IN (${monthsPlaceholders})
            AND t.canceled = 0 AND t.origin = 'office'
-           ${filterSQL}
-         ORDER BY value ASC`,
+           ${filterSQL}`;
+      const res = await this.pool.query(
+        `${this._wrapForOptions(key, innerSQL)} ORDER BY ${orderBy}`,
         params
       );
-      result[key] = res.rows.map(r => r.value === '' ? '__VAZIO__' : r.value);
+      result[key] = this._extractOptions(key, res.rows);
     }));
     return result;
   }

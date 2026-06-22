@@ -4,16 +4,6 @@ import {
   List, ListItemButton, ListItemText,
   Box, Collapse, Tooltip, IconButton,
 } from '@mui/material';
-import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import ConfirmationNumberRoundedIcon from '@mui/icons-material/ConfirmationNumberRounded';
-import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
-import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
-import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded';
-import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
-import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
-import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
-import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
@@ -21,66 +11,13 @@ import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import { useStore } from '../Store';
 import { COLORS } from '../../utils/colors';
+import { menuItems } from '../../utils/menuItems';
 
 const DRAWER_WIDTH = 220;
 const COLLAPSED_WIDTH = 56;
 
 const isListingPath = (path) =>
   path.includes('listar') || path === '/usuarios' || path === '/tours-cancelados' || path === '/importar-planne';
-
-const sectionColors = {
-  Tours:          '#ff642e',
-  Financeiro:     '#00c875',
-  Clientes:       '#a25ddc',
-  Produtos:       '#0086c0',
-  'Ordem do Dia': '#fdab3d',
-  Análises:       '#e2445c',
-  Admin:          '#676879',
-};
-
-const menuItems = [
-  { label: 'Início',        path: '/',              icon: HomeRoundedIcon,                 permissions: [1,2,3,4,5,6] },
-  { label: 'Busca Rápida',  path: '/quick-search',  icon: SearchRoundedIcon,               permissions: [1,2,4,5] },
-  { label: 'Tours', icon: ConfirmationNumberRoundedIcon, color: sectionColors['Tours'], children: [
-    { label: 'Cadastrar Tour',       path: '/cadastrar-tour',            permissions: [1,2,4,5] },
-    { label: 'Importar da Planne',   path: '/importar-planne',           permissions: [1,2,4,5] },
-    { label: 'Listar Tours',         path: '/listar-tours',              permissions: [1,2,4,5] },
-    { label: 'Lista Resumida',        path: '/listar-tours-resumido',     permissions: [1,2,3,4,5] },
-    { label: 'Cancelados',           path: '/tours-cancelados',          permissions: [1,2,3,4,5] },
-    { label: 'Imprimir Lista',       path: '/imprimir-lista',            permissions: [1,2,4,5] },
-    { label: 'Comissões',            path: '/listar-comissoes',          permissions: [1,2,3,4,5] },
-  ]},
-  { label: 'Financeiro', icon: AccountBalanceWalletRoundedIcon, color: sectionColors['Financeiro'], children: [
-    { label: 'Novo Tour Financeiro', path: '/cadastrar-tour-financeiro', permissions: [2,4,5] },
-    { label: 'Listar Financeiro',    path: '/listar-tours-financeiro',   permissions: [2,4,5] },
-  ]},
-  { label: 'Clientes', icon: GroupsRoundedIcon, color: sectionColors['Clientes'], children: [
-    { label: 'Novo Cliente',    path: '/cadastrar-cliente',  permissions: [1,2,3,4,5] },
-    { label: 'Listar Clientes', path: '/listar-clientes',    permissions: [1,2,3,4,5] },
-  ]},
-  { label: 'Produtos', icon: CategoryRoundedIcon, color: sectionColors['Produtos'], children: [
-    { label: 'Novo Produto',      path: '/cadastrar-produto',   permissions: [1,2,3,4,5] },
-    { label: 'Listar Produtos',   path: '/listar-produtos',     permissions: [1,2,3,4,5] },
-    { label: 'Novo Adicional',    path: '/cadastrar-adicional', permissions: [1,2,3,4,5] },
-    { label: 'Listar Adicionais', path: '/listar-adicionais',   permissions: [1,2,3,4,5] },
-  ]},
-  { label: 'Ordem do Dia', icon: EventNoteRoundedIcon, color: sectionColors['Ordem do Dia'], children: [
-    { label: 'Calendário',     path: '/ordem-do-dia',            permissions: [1,2,3,4,5] },
-    { label: 'Configurações',  path: '/opcoes-ordem-do-dia',     permissions: [1,2,3,4,5] },
-    { label: 'Pagamentos',     path: '/pagamentos-ordem-do-dia', permissions: [2,4,5] },
-  ]},
-  { label: 'Análises', icon: InsightsRoundedIcon, color: sectionColors['Análises'], children: [
-    { label: 'Por Cliente', path: '/analises-por-cliente',   permissions: [2,4,5,6] },
-    { label: 'Por País',    path: '/analises-por-pais',      permissions: [2,4,5,6] },
-    { label: 'Por Hora',    path: '/analises-por-hora',      permissions: [2,4,5,6] },
-    { label: 'Por Produto', path: '/analises-por-produto',   permissions: [2,4,5,6] },
-  ]},
-  { label: 'Meu Usuário', path: '/meu-usuario', icon: AccountCircleRoundedIcon, permissions: [1,2,3,4,5,6] },
-  { label: 'Admin', icon: ManageAccountsRoundedIcon, color: sectionColors['Admin'], children: [
-    { label: 'Configurações', path: '/configuracoes', permissions: [4] },
-    { label: 'Usuários',      path: '/usuarios',      permissions: [4] },
-  ]},
-];
 
 export default function Sidebar() {
   const navigate  = useNavigate();

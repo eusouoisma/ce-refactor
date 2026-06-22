@@ -118,6 +118,18 @@ class TourEditHistoryService {
     }
   }
 
+  async recordCreation(tourId, createdBy, type, tx) {
+    await this.repo.insertMany([{
+      tourId:     parseInt(tourId),
+      type:       type || 'office',
+      fieldName:  '__created__',
+      fieldLabel: 'Tour criado',
+      oldValue:   '',
+      newValue:   '',
+      editedBy:   createdBy || '',
+    }], tx);
+  }
+
   async getHistory(tourId, type = null) {
     return this.repo.findByTourId(tourId, type);
   }

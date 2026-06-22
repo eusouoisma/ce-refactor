@@ -9,8 +9,8 @@ import FilterAltRoundedIcon from '@mui/icons-material/FilterAltRounded';
 import FilterModal from './FilterModal';
 import { COLORS } from '../../utils/colors';
 
-const ACCENT_H = '#deedfb';
-const ACCENT_B = '#eef5fd';
+const ACCENT_H = COLORS.tableHeaderAltBg;
+const ACCENT_B = COLORS.tableCellAltBg;  // light blue alt cell
 
 function getHeaderBg(visIdx, altColumns) {
   if (!altColumns) return COLORS.tableHeaderBg;
@@ -122,8 +122,9 @@ export default function DataTable({
     if (!fetchOptions) return; // using pre-loaded filterOptions
 
     const key = col.key;
-    if (cachedOptions[key] !== undefined) return; // already cached
 
+    // Always re-fetch on open so cascading filters reflect current active filters.
+    // Show stale cache (if any) while loading so the modal isn't blank.
     optionsFetchRef.current?.abort();
     const ctrl = new AbortController();
     optionsFetchRef.current = ctrl;
@@ -153,12 +154,13 @@ export default function DataTable({
 
   const commonHeaderCellSx = {
     fontWeight: 600,
-    fontSize: '0.58rem',
+    fontSize: '0.52rem',
     whiteSpace: 'nowrap',
-    borderBottom: `2px solid ${COLORS.border}`,
-    borderRight: `1px solid ${COLORS.border}`,
+    borderBottom: `2px solid ${COLORS.tableBorder}`,
+    borderRight: `1px solid ${COLORS.tableBorder}`,
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
+    textAlign: 'center',
     position: 'sticky',
     top: 0,
     zIndex: 2,
@@ -181,13 +183,14 @@ export default function DataTable({
         ref={scrollRef}
         sx={{
           borderRadius: 2,
-          border: `1px solid ${COLORS.border}`,
+          border: `1px solid ${COLORS.tableBorder}`,
           boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
           maxHeight: 'calc(100vh - 260px)',
           overflow: 'auto',
-          '&::-webkit-scrollbar': { width: 6, height: 6 },
-          '&::-webkit-scrollbar-track': { background: 'transparent' },
-          '&::-webkit-scrollbar-thumb': { background: 'rgba(0,0,0,0.14)', borderRadius: 4 },
+          '&::-webkit-scrollbar': { width: 8, height: 8 },
+          '&::-webkit-scrollbar-track': { background: '#f0f0f0', borderRadius: 4 },
+          '&::-webkit-scrollbar-thumb': { background: 'rgba(0,0,0,0.35)', borderRadius: 4 },
+          '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(0,0,0,0.55)' },
         }}
       >
         <Table size="small" stickyHeader ref={tableRef}>
@@ -196,8 +199,8 @@ export default function DataTable({
               {selectable && (
                 <TableCell padding="checkbox" sx={{
                   bgcolor: COLORS.tableHeaderBg,
-                  borderBottom: `2px solid ${COLORS.border}`,
-                  borderRight: `1px solid ${COLORS.border}`,
+                  borderBottom: `2px solid ${COLORS.tableBorder}`,
+                  borderRight: `1px solid ${COLORS.tableBorder}`,
                   position: 'sticky', top: 0, zIndex: 3,
                 }}>
                   <Checkbox
@@ -221,7 +224,7 @@ export default function DataTable({
                     '&:hover': col.filterable ? { bgcolor: '#ecedf2', color: COLORS.textPrimary } : {},
                     transition: 'all 0.12s',
                   }} onClick={() => openFilter(col)}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.6 }}>
                       {col.label}
                       {col.filterable && (
                         <Tooltip title={hasFilter ? 'Filtro ativo — clique para editar' : 'Filtrar coluna'} arrow>
@@ -259,7 +262,7 @@ export default function DataTable({
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={totalCols} sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.70rem', border: 'none' }}>
+                <TableCell colSpan={totalCols} sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.63rem', border: 'none' }}>
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -279,8 +282,8 @@ export default function DataTable({
                   sx={{
                     cursor: (selectable || onRowClick) ? 'pointer' : 'default',
                     transition: 'background-color 0.1s',
-                    bgcolor: isSelected ? '#a8c8f0' : (!altColumns ? COLORS.tableWhite : 'transparent'),
-                    '&:hover': (!altColumns || isSelected) ? { bgcolor: isSelected ? '#90b5e8' : COLORS.tableHover } : {},
+                    bgcolor: isSelected ? '#fdab3d' : (!altColumns ? COLORS.tableWhite : 'transparent'),
+                    '&:hover': (!altColumns || isSelected) ? { bgcolor: isSelected ? '#f09c28' : COLORS.tableHover } : {},
                     '&:hover td': (altColumns && !isSelected) ? { bgcolor: rowBgOverride ?? COLORS.tableHover } : {},
                     ...(isSelected && { '& > td:first-of-type': { borderLeft: `3px solid ${COLORS.primary}` } }),
                     ...extraRowSx,
@@ -301,14 +304,16 @@ export default function DataTable({
 
                   {columns.map((col, ci) => (
                     <TableCell key={col.key} sx={{
-                      fontSize: '0.64rem',
+                      fontSize: '0.58rem',
                       whiteSpace: 'nowrap',
                       borderBottom: `1px solid ${COLORS.tableBorder}`,
                       borderRight: `1px solid ${COLORS.tableBorder}`,
                       py: 0.25,
                       px: 1,
-                      color: COLORS.textPrimary,
+                      textAlign: 'center',
+                      color: COLORS.tableCellText,
                       bgcolor: rowBgOverride ?? getCellBg(ci, altColumns, isSelected),
+                      ...(col.getCellSx ? col.getCellSx(row[col.key], row) : {}),
                     }}>
                       {col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '')}
                     </TableCell>

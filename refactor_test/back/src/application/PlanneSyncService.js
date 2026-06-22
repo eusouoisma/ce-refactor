@@ -223,7 +223,7 @@ class PlanneSyncService {
       duration:  this._formatDuration(resv.durationMinutes),
       platform:  'Planne',
       language:      LANGUAGE_MAP[langCode] || langCode || '',
-      client:        fullName,
+      client:        'Planne',
       clientName:    fullName,
       clientContact: contact,
       country:       customer.countryCode ? [COUNTRY_MAP[customer.countryCode] || customer.countryCode] : [],

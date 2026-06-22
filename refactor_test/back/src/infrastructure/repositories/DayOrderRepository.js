@@ -165,7 +165,7 @@ class DayOrderRepository {
     const monthsArr = months ? months.split(',').map(Number) : [];
     const monthsPlaceholders = monthsArr.map((_, i) => `$${i + 2}`).join(',');
     const res = await this.pool.query(
-      `SELECT dp.*, d.date, df."orderNumber"
+      `SELECT dp.*, dp.comments AS "paymentComments", d.date, df."orderNumber"
        FROM "dayOrderPayments" dp
        INNER JOIN "dayOrder" d ON d.id = dp."dayOrderId"
        INNER JOIN "dayOrderEmployeesFunctions" df ON LOWER(df.name) = LOWER(dp.function)
@@ -299,7 +299,8 @@ class DayOrderRepository {
           STRING_AGG(DISTINCT t."ceGuide", ',') FILTER (WHERE t."ceGuide" IS NOT NULL AND t."ceGuide" != '') as guides,
           SUM(t."paxAdult" + t."paxHalf" + t."paxFree" + t."paxNet" + t."paxBrazilian") as "paxTotal",
           t.status,
-          MAX(t."numberOfGroups") as "numberOfGroups"
+          MAX(t."numberOfGroups") as "numberOfGroups",
+          STRING_AGG(DISTINCT NULLIF(t.comments, ''), E'\\n---\\n') as comments
        FROM tour t
        WHERE t."dayOrderId" = $1
          AND t."tourHour" != ''
@@ -319,7 +320,8 @@ class DayOrderRepository {
           STRING_AGG(DISTINCT t."ceGuide", ',') FILTER (WHERE t."ceGuide" IS NOT NULL AND t."ceGuide" != '') as guides,
           SUM(t."paxAdult" + t."paxHalf" + t."paxFree" + t."paxNet" + t."paxBrazilian") as "paxTotal",
           t.status,
-          MAX(t."numberOfGroups") as "numberOfGroups"
+          MAX(t."numberOfGroups") as "numberOfGroups",
+          STRING_AGG(DISTINCT NULLIF(t.comments, ''), E'\\n---\\n') as comments
        FROM tour t
        WHERE t."dayOrderId" = $1
          AND t."tourHour" != ''

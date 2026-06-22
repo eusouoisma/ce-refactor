@@ -105,11 +105,16 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           fontFamily: '"Poppins", "Roboto", sans-serif',
-          fontSize: '0.7rem',
+          fontSize: '0.63rem',
           paddingTop: 3,
           paddingBottom: 3,
           paddingLeft: 8,
           paddingRight: 8,
+          textAlign: 'center',
+          color: COLORS.tableCellText,
+        },
+        head: {
+          color: COLORS.tableHeaderText,
         },
       },
     },

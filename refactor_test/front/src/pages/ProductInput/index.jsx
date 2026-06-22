@@ -5,6 +5,8 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
+import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 
 const newVariant = () => ({
   pricingType: 'person', priceAdult: '', priceHalf: '', priceNet: '', priceBrazilian: '',
@@ -15,6 +17,8 @@ const newVariant = () => ({
 export default function ProductInput() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userPermissions } = useStore();
+  const readOnly = isReadOnly(userPermissions);
   const isAdicionais = location.pathname === '/cadastrar-adicional';
 
   const [form, setForm] = useState({
@@ -30,6 +34,7 @@ export default function ProductInput() {
   }
 
   async function handleSubmit(andNew = false) {
+    if (readOnly) return;
     const res = await apiFetch('/products/create', {
       method: 'POST',
       body: JSON.stringify(form),
@@ -116,8 +121,8 @@ export default function ProductInput() {
           ))}
           <Button startIcon={<AddIcon />} onClick={() => setForm(p => ({ ...p, variants: [...p.variants, newVariant()] }))}>Adicionar Variante</Button>
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            <Button variant="contained" onClick={() => handleSubmit(false)}>Salvar</Button>
-            <Button variant="outlined" onClick={() => handleSubmit(true)}>Salvar e Criar Outro</Button>
+            <Button variant="contained" onClick={() => handleSubmit(false)} disabled={readOnly}>Salvar</Button>
+            <Button variant="outlined" onClick={() => handleSubmit(true)} disabled={readOnly}>Salvar e Criar Outro</Button>
             <Button variant="text" onClick={() => navigate(isAdicionais ? '/listar-adicionais' : '/listar-produtos')}>Cancelar</Button>
           </Box>
         </CardContent>

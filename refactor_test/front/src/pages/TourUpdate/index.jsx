@@ -504,12 +504,12 @@ export default function TourUpdate() {
                   onInputChange={(_, v) => set('client', v)}
                   renderInput={p => <TextField {...p} size="small" label="Cliente" />} />
                 <Autocomplete freeSolo
-                  options={clientContacts.map(c => c.contactName || '').filter(Boolean)}
+                  options={clientContacts.map(c => [c.firstName, c.lastName].filter(Boolean).join(' ')).filter(Boolean)}
                   value={form.clientName || ''}
                   onInputChange={(_, v) => {
                     set('clientName', v);
-                    const contact = clientContacts.find(c => c.contactName === v);
-                    if (contact) set('clientContact', contact.contactEmail || '');
+                    const contact = clientContacts.find(c => [c.firstName, c.lastName].filter(Boolean).join(' ') === v);
+                    if (contact) set('clientContact', contact.email || contact.whatsapp || '');
                   }}
                   renderInput={p => <TextField {...p} size="small" label="Nome do Cliente" />} />
                 <TextField fullWidth size="small" label="Contato do Cliente"
@@ -573,7 +573,7 @@ export default function TourUpdate() {
                       {form.changeRequests.map((cr, i) => (
                         <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
                           <TableCell sx={{ fontSize: '0.8rem' }}>{cr.name}</TableCell>
-                          <TableCell sx={{ fontSize: '0.8rem', color: COLORS.textSecondary }}>{cr.oldValue}</TableCell>
+                          <TableCell sx={{ fontSize: '0.8rem', color: COLORS.tableCellText }}>{cr.oldValue}</TableCell>
                           <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, color: COLORS.primary }}>{cr.newValue}</TableCell>
                         </TableRow>
                       ))}
@@ -593,31 +593,44 @@ export default function TourUpdate() {
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: COLORS.tableHeaderBg }}>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Data/Hora</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Usuário</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Campo</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>De</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Para</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Data/Hora</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Usuário</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Campo</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>De</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Para</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {editHistory.map((e) => (
-                        <TableRow key={e.id} sx={{ '&:last-child td': { border: 0 } }}>
-                          <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary, whiteSpace: 'nowrap' }}>
-                            {new Date(e.editedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600 }}>{e.editedBy}</TableCell>
-                          <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1 }}>
-                            <Chip label={e.fieldLabel} size="small" sx={{ fontSize: '0.58rem', height: 18, bgcolor: `${COLORS.primary}18`, color: COLORS.primary, fontWeight: 600 }} />
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary }}>
-                            {e.oldValue || <em style={{ color: '#bbb' }}>vazio</em>}
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600, color: COLORS.primary }}>
-                            {e.newValue || <em style={{ color: '#bbb' }}>vazio</em>}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {editHistory.map((e) => {
+                        if (e.fieldName === '__created__') return (
+                          <TableRow key={e.id} sx={{ '&:last-child td': { border: 0 } }}>
+                            <TableCell sx={{ fontSize: '0.58rem', py: 0.25, px: 1, textAlign: 'center', color: COLORS.tableCellText, whiteSpace: 'nowrap' }}>
+                              {new Date(e.editedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600 }}>{e.editedBy}</TableCell>
+                            <TableCell colSpan={3} sx={{ py: 0.25, px: 1, textAlign: 'center' }}>
+                              <Chip label="Tour criado" size="small" sx={{ fontSize: '0.58rem', height: 18, bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }} />
+                            </TableCell>
+                          </TableRow>
+                        );
+                        return (
+                          <TableRow key={e.id} sx={{ '&:last-child td': { border: 0 } }}>
+                            <TableCell sx={{ fontSize: '0.58rem', py: 0.25, px: 1, textAlign: 'center', color: COLORS.tableCellText, whiteSpace: 'nowrap' }}>
+                              {new Date(e.editedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600 }}>{e.editedBy}</TableCell>
+                            <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1 }}>
+                              <Chip label={e.fieldLabel} size="small" sx={{ fontSize: '0.58rem', height: 18, bgcolor: `${COLORS.primary}18`, color: COLORS.primary, fontWeight: 600 }} />
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.58rem', py: 0.25, px: 1, textAlign: 'center', color: COLORS.tableCellText }}>
+                              {e.oldValue || <em style={{ color: '#bbb' }}>vazio</em>}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600, color: COLORS.primary }}>
+                              {e.newValue || <em style={{ color: '#bbb' }}>vazio</em>}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </Box>

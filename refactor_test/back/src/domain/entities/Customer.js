@@ -1,19 +1,35 @@
 class Customer {
   static coerce(data = {}) {
     return {
-      customerName: data.customerName || '',
-      customerType: data.customerType || '',
-      createdBy:    data.createdBy    || '',
-      lastEditBy:   data.lastEditBy   || '',
+      companyName:       data.companyName       || '',
+      customerType:      data.customerType      || '',
+      address:           data.address           || '',
+      phone:             data.phone             || '',
+      email:             data.email             || '',
+      website:           data.website           || '',
+      notes:             data.notes             || '',
+      razaoSocial:       data.razaoSocial       || '',
+      cnpj:              data.cnpj              || '',
+      inscricaoEstadual: data.inscricaoEstadual || '',
+      enderecoFiscal:    data.enderecoFiscal    || '',
+      mainPhone:         data.mainPhone         || '',
+      whatsapp:          data.whatsapp          || '',
+      emailFinanceiro:   data.emailFinanceiro   || '',
+      emailComercial:    data.emailComercial    || '',
+      status:            data.status            || 'Ativo',
+      createdBy:         data.createdBy         || '',
+      lastEditBy:        data.lastEditBy        || '',
     };
   }
 
   static coerceContact(data = {}) {
     return {
-      name:    data.name    || '',
-      contact: data.contact || '',
-      office:  data.office  || '',
-      email:   data.email   || '',
+      firstName: data.firstName || '',
+      lastName:  data.lastName  || '',
+      role:      data.role      || '',
+      email:     data.email     || '',
+      whatsapp:  data.whatsapp  || '',
+      notes:     data.notes     || '',
     };
   }
 }

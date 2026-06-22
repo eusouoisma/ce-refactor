@@ -9,6 +9,8 @@ import AddIcon from '@mui/icons-material/Add';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
+import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 import { COLORS } from '../../utils/colors';
 
 const GROUPS = [
@@ -22,15 +24,17 @@ const GROUPS = [
   { type: 'company',       label: 'Empresa',                placeholder: 'Nova empresa',            color: '#34a853' },
   { type: 'accountNumber', label: 'Número de Conta',        placeholder: 'Novo número de conta',    color: '#676879' },
   { type: 'country',       label: 'País',                   placeholder: 'Novo país',               color: '#4285f4' },
+  { type: 'customerType', label: 'Tipo de Cliente',         placeholder: 'Novo tipo de cliente',    color: '#0086c0' },
 ];
 
 const EXCLUDED_TYPES = new Set(['orderRefCount', 'CurrentYear', 'currentYear']);
 
-function SettingSection({ group, items, onAdd, onDelete }) {
+function SettingSection({ group, items, onAdd, onDelete, readOnly }) {
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handleAdd() {
+    if (readOnly) return;
     const trimmed = value.trim();
     if (!trimmed) return;
     setSaving(true);
@@ -59,7 +63,7 @@ function SettingSection({ group, items, onAdd, onDelete }) {
               key={item.id}
               label={item.value}
               size="small"
-              onDelete={() => onDelete(item.id, item.value)}
+              onDelete={readOnly ? undefined : () => onDelete(item.id, item.value)}
               deleteIcon={<DeleteIcon sx={{ fontSize: '14px !important' }} />}
               sx={{
                 bgcolor: '#f5f6f8',
@@ -72,31 +76,35 @@ function SettingSection({ group, items, onAdd, onDelete }) {
         </Stack>
       )}
 
-      <Stack direction="row" gap={1} alignItems="center">
-        <TextField
-          size="small"
-          placeholder={group.placeholder}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          sx={{ flexGrow: 1, maxWidth: 360 }}
-        />
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <AddIcon />}
-          onClick={handleAdd}
-          disabled={saving || !value.trim()}
-        >
-          Adicionar
-        </Button>
-      </Stack>
+      {!readOnly && (
+        <Stack direction="row" gap={1} alignItems="center">
+          <TextField
+            size="small"
+            placeholder={group.placeholder}
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            sx={{ flexGrow: 1, maxWidth: 360 }}
+          />
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <AddIcon />}
+            onClick={handleAdd}
+            disabled={saving || !value.trim()}
+          >
+            Adicionar
+          </Button>
+        </Stack>
+      )}
     </Paper>
   );
 }
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { userPermissions } = useStore();
+  const readOnly = isReadOnly(userPermissions);
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -111,6 +119,7 @@ export default function Settings() {
   }, []);
 
   const handleAdd = useCallback(async (type, value) => {
+    if (readOnly) return;
     const res = await apiFetch('/settings/create', {
       method: 'POST',
       body: JSON.stringify({ type, value }),
@@ -123,9 +132,10 @@ export default function Settings() {
     // Reload to get the new id
     const fresh = await apiFetch('/settings/list-all').then(r => r.json()).catch(() => null);
     if (fresh) setSettings(fresh);
-  }, []);
+  }, [readOnly]);
 
   const handleDelete = useCallback(async (id, label) => {
+    if (readOnly) return;
     const { isConfirmed } = await Swal.fire({
       title: `Excluir "${label}"?`,
       icon: 'warning',
@@ -138,9 +148,10 @@ export default function Settings() {
 
     setSettings(prev => prev.filter(s => s.id !== id));
     await apiFetch(`/settings/delete?id=${id}`).catch(() => {});
-  }, []);
+  }, [readOnly]);
 
   async function handleLogoutAll() {
+    if (readOnly) return;
     const { isConfirmed } = await Swal.fire({
       title: 'Deslogar todos os usuários?',
       text: 'Todos os usuários ativos serão desconectados.',
@@ -168,15 +179,17 @@ export default function Settings() {
       <Typography variant="h5" fontWeight={700} sx={{ mb: 3 }}>Configurações</Typography>
 
       <Box sx={{ mb: 3 }}>
-        <Button
-          variant="outlined"
-          color="error"
-          size="small"
-          startIcon={<LogoutIcon />}
-          onClick={handleLogoutAll}
-        >
-          Deslogar todos os usuários
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            startIcon={<LogoutIcon />}
+            onClick={handleLogoutAll}
+          >
+            Deslogar todos os usuários
+          </Button>
+        )}
       </Box>
 
       <Divider sx={{ mb: 3 }} />
@@ -194,6 +207,7 @@ export default function Settings() {
               items={itemsByType[group.type] || []}
               onAdd={handleAdd}
               onDelete={handleDelete}
+              readOnly={readOnly}
             />
           ))}
         </Stack>

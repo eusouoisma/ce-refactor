@@ -9,6 +9,7 @@ import RestoreRoundedIcon from '@mui/icons-material/RestoreRounded';
 import { DownloadTableExcel } from 'react-export-table-to-excel';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 import { getAllMonths } from '../../utils/functions';
 import DataTable from '../../components/DataTable';
 import { COLORS } from '../../utils/colors';
@@ -16,18 +17,20 @@ import { COLORS } from '../../utils/colors';
 const PAGE_SIZE = 80;
 const MONTHS = getAllMonths();
 
-const makeActions = (navigate, uncancel) => (row) => (
+const makeActions = (navigate, uncancel, canEdit) => (row) => (
   <Box sx={{ display: 'flex', gap: 0.5 }}>
     <Tooltip title="Editar" arrow>
       <IconButton size="small" onClick={e => { e.stopPropagation(); navigate(`/editar-tour?id=${row.id}`); }}>
         <EditRoundedIcon fontSize="small" sx={{ color: COLORS.primary }} />
       </IconButton>
     </Tooltip>
-    <Tooltip title="Restaurar tour" arrow>
-      <IconButton size="small" onClick={e => { e.stopPropagation(); uncancel(row); }}>
-        <RestoreRoundedIcon fontSize="small" color="success" />
-      </IconButton>
-    </Tooltip>
+    {canEdit && (
+      <Tooltip title="Restaurar tour" arrow>
+        <IconButton size="small" onClick={e => { e.stopPropagation(); uncancel(row); }}>
+          <RestoreRoundedIcon fontSize="small" color="success" />
+        </IconButton>
+      </Tooltip>
+    )}
   </Box>
 );
 
@@ -72,7 +75,8 @@ const COLUMNS = (rowActions) => [
 
 export default function CanceledList() {
   const navigate = useNavigate();
-  const { userName } = useStore();
+  const { userName, userPermissions } = useStore();
+  const canEdit = !isReadOnly(userPermissions);
   const tableRef = useRef(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [activeMonths, setActiveMonths] = useState([new Date().getMonth() + 1]);
@@ -80,7 +84,7 @@ export default function CanceledList() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
+  const [selectedRow, setSelectedRow] = useState([]);
 
   const offsetRef = useRef(0);
   const hasMoreRef = useRef(true);
@@ -136,6 +140,7 @@ export default function CanceledList() {
   }
 
   async function uncancel(tour) {
+    if (!canEdit) return;
     await apiFetch(`/tours/uncancel?id=${tour.id}`, {
       method: 'POST',
       body: JSON.stringify({ lastEditBy: userName }),
@@ -143,7 +148,7 @@ export default function CanceledList() {
     navigate('/listar-tours');
   }
 
-  const rowActions = makeActions(navigate, uncancel);
+  const rowActions = makeActions(navigate, uncancel, canEdit);
   const columns = COLUMNS(rowActions);
 
   return (
@@ -193,8 +198,8 @@ export default function CanceledList() {
         altColumns
         emptyMessage="Nenhum tour cancelado encontrado para o período selecionado."
         tableRef={tableRef}
-        onRowClick={row => setSelectedRow(p => p === row.id ? null : row.id)}
-        getRowSx={row => row.id === selectedRow ? { bgcolor: '#fff176' } : {}}
+        onRowClick={row => setSelectedRow(p => p.includes(row.id) ? p.filter(id => id !== row.id) : [...p, row.id])}
+        getRowSx={row => selectedRow.includes(row.id) ? { bgcolor: '#fdab3d' } : {}}
         onBottomReached={loadMore}
       />
 

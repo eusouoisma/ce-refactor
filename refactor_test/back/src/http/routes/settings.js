@@ -41,5 +41,6 @@ router.get('/guides',          makeTypeRoute('guide'));
 router.get('/companies',       makeTypeRoute('company'));
 router.get('/account-numbers', makeTypeRoute('accountNumber'));
 router.get('/countries',       makeTypeRoute('country'));
+router.get('/customer-types',  makeTypeRoute('customerType'));
 
 module.exports = router;

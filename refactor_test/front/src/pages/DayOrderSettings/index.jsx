@@ -13,6 +13,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { apiFetch } from '../../utils/api';
 import { formatMoney } from '../../utils/functions';
 import { useStore } from '../../components/Store';
+import { COLORS } from '../../utils/colors';
 
 const PAYMENT_TYPES = { hour: 'Por Hora', tour: 'Por Tour', day: 'Por Dia', special: 'Especial' };
 
@@ -67,7 +68,7 @@ function SectionLabel({ children }) {
 // Consistent table header cell
 function TH({ children, align }) {
   return (
-    <TableCell align={align} sx={{ fontWeight: 700, bgcolor: '#f5f5f5', fontSize: '0.62rem', py: 0.25, px: 1, whiteSpace: 'nowrap' }}>
+    <TableCell align={align} sx={{ fontWeight: 700, bgcolor: COLORS.tableHeaderBg, color: COLORS.tableHeaderText, fontSize: '0.56rem', py: 0.25, px: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>
       {children}
     </TableCell>
   );
@@ -250,7 +251,7 @@ export default function DayOrderSettings() {
                 {functions.map((f, i) => (
                   <TR key={f.id} index={i}>
                     <TableCell sx={{ fontWeight: 500 }}>{f.name}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary' }}>{f.orderNumber}</TableCell>
+                    <TableCell sx={{ color: COLORS.tableCellText }}>{f.orderNumber}</TableCell>
                     <TableCell align="right" sx={{ py: 0.25 }}>
                       <IconButton size="small" color="primary" onClick={() => setEditingFn({ ...f })} disabled={!canEdit}><EditIcon fontSize="small" /></IconButton>
                       <IconButton size="small" color="error"   onClick={() => deleteFn(f.id)}         disabled={!canEdit}><DeleteIcon fontSize="small" /></IconButton>
@@ -510,7 +511,7 @@ export default function DayOrderSettings() {
                 {filteredEmps.map((e, i) => (
                   <TR key={e.id} index={i}>
                     <TableCell sx={{ fontWeight: 500 }}>{e.name}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary' }}>{e.function}</TableCell>
+                    <TableCell sx={{ color: COLORS.tableCellText }}>{e.function}</TableCell>
                     <TableCell>
                       <Chip
                         label={e.type}
@@ -520,7 +521,7 @@ export default function DayOrderSettings() {
                         sx={{ fontSize: '0.7rem', height: 20 }}
                       />
                     </TableCell>
-                    <TableCell sx={{ color: 'text.secondary' }}>{e.phone}</TableCell>
+                    <TableCell sx={{ color: COLORS.tableCellText }}>{e.phone}</TableCell>
                     <TableCell align="right" sx={{ py: 0.25 }}>
                       <IconButton size="small" color="primary" onClick={() => setEditingEmp({ ...e })} disabled={!canEdit}><EditIcon fontSize="small" /></IconButton>
                       <IconButton size="small" color="error"   onClick={() => deleteEmp(e.id)}         disabled={!canEdit}><DeleteIcon fontSize="small" /></IconButton>

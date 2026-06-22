@@ -52,7 +52,14 @@ export default function QuickSearch() {
   }
 
   async function cancelTour(tour) {
-    if (perm === 5) return;
+    if (perm === 5) {
+      Swal.fire({
+        title: 'Acesso Negado',
+        text: 'Você não tem permissão para cancelar tours.',
+        icon: 'error',
+      });
+      return;
+    }
     const { value: cancelReason } = await Swal.fire({ title: 'Motivo', input: 'text', showCancelButton: true });
     if (cancelReason === undefined) return;
     await apiFetch(`/tours/cancel?id=${tour.id}`, {

@@ -1,21 +1,3 @@
-const FILTERABLE = {
-  customerName:    'c."customerName"',
-  customerType:    'c."customerType"',
-  contactName:     'cc."contactName"',
-  contactContact:  'cc."contactContact"',
-  contactOffice:   'cc."contactOffice"',
-  contactEmail:    'cc."contactEmail"',
-};
-
-const SEARCHABLE_COLS = [
-  'c."customerName"',
-  'c."customerType"',
-  'cc."contactName"',
-  'cc."contactContact"',
-  'cc."contactOffice"',
-  'cc."contactEmail"',
-];
-
 class CustomerRepository {
   constructor(pool) {
     this.pool = pool;
@@ -23,49 +5,29 @@ class CustomerRepository {
 
   _db(tx) { return tx || this.pool; }
 
-  _buildWhere({ filters = {}, search = '', excludeKey = null }) {
-    const conds = ['cc.deleted = 0'];
-    const params = [];
-    for (const [key, col] of Object.entries(FILTERABLE)) {
-      if (key === excludeKey) continue;
-      const vals = filters[key];
-      if (Array.isArray(vals) && vals.length > 0) {
-        const ph = vals.map(v => { params.push(String(v)); return `$${params.length}`; }).join(',');
-        conds.push(`COALESCE(${col}, '') IN (${ph})`);
-      }
-    }
-    const term = String(search || '').trim();
-    if (term) {
-      params.push(`%${term.toLowerCase()}%`);
-      const i = params.length;
-      const ors = SEARCHABLE_COLS.map(c => `LOWER(COALESCE(${c}, '')) LIKE $${i}`).join(' OR ');
-      conds.push(`(${ors})`);
-    }
-    return { where: conds.join(' AND '), params };
-  }
-
   async findByName(name, tx) {
     const db = this._db(tx);
-    const res = await db.query(`SELECT id FROM customers WHERE "customerName" = $1`, [name]);
+    const res = await db.query(`SELECT id FROM customers WHERE "companyName" = $1`, [name]);
     return res.rows[0] || null;
   }
 
-  async findContactByCustomerAndName(customerName, contactName, tx) {
+  async insert(data, tx) {
     const db = this._db(tx);
     const res = await db.query(
-      `SELECT cc.id FROM customers c
-       INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
-       WHERE c."customerName" = $1 AND cc."contactName" = $2`,
-      [customerName, contactName || '']
-    );
-    return res.rows[0] || null;
-  }
-
-  async insert(customerName, customerType, createdBy, lastEditBy, tx) {
-    const db = this._db(tx);
-    const res = await db.query(
-      `INSERT INTO customers ("customerName","customerType","createdBy","lastEditBy") VALUES ($1,$2,$3,$4) RETURNING id`,
-      [customerName || '', customerType || '', createdBy || '', lastEditBy || '']
+      `INSERT INTO customers
+         ("companyName","customerType","address","phone","email","website","notes",
+          "razaoSocial","cnpj","inscricaoEstadual","enderecoFiscal",
+          "mainPhone","whatsapp","emailFinanceiro","emailComercial","status",
+          "createdBy","lastEditBy")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+       RETURNING id`,
+      [
+        data.companyName||'', data.customerType||'', data.address||'', data.phone||'',
+        data.email||'', data.website||'', data.notes||'', data.razaoSocial||'',
+        data.cnpj||'', data.inscricaoEstadual||'', data.enderecoFiscal||'',
+        data.mainPhone||'', data.whatsapp||'', data.emailFinanceiro||'',
+        data.emailComercial||'', data.status||'Ativo', data.createdBy||'', data.lastEditBy||'',
+      ]
     );
     return res.rows[0].id;
   }
@@ -73,112 +35,101 @@ class CustomerRepository {
   async insertContact(customerId, contact, tx) {
     const db = this._db(tx);
     await db.query(
-      `INSERT INTO "customerContacts" ("customerId","contactName","contactContact","contactOffice","contactEmail","createdBy","lastEditBy")
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [customerId, contact.name || '', contact.contact || '', contact.office || '', contact.email || '', contact.createdBy || '', contact.lastEditBy || '']
+      `INSERT INTO "customerContacts"
+         ("customerId","firstName","lastName","role","email","whatsapp","notes","createdBy","lastEditBy")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        customerId,
+        contact.firstName||'', contact.lastName||'', contact.role||'',
+        contact.email||'', contact.whatsapp||'', contact.notes||'',
+        contact.createdBy||'', contact.lastEditBy||'',
+      ]
     );
   }
 
-  async update(customerId, customerName, customerType, lastEditBy, tx) {
+  async update(customerId, data, tx) {
     const db = this._db(tx);
     await db.query(
-      `UPDATE customers SET "customerName"=$1,"customerType"=$2,"lastEditBy"=$3 WHERE id=$4`,
-      [customerName || '', customerType || '', lastEditBy || '', customerId]
+      `UPDATE customers SET
+         "companyName"=$1,"customerType"=$2,"address"=$3,"phone"=$4,"email"=$5,"website"=$6,"notes"=$7,
+         "razaoSocial"=$8,"cnpj"=$9,"inscricaoEstadual"=$10,"enderecoFiscal"=$11,
+         "mainPhone"=$12,"whatsapp"=$13,"emailFinanceiro"=$14,"emailComercial"=$15,
+         "status"=$16,"lastEditBy"=$17
+       WHERE id=$18`,
+      [
+        data.companyName||'', data.customerType||'', data.address||'', data.phone||'',
+        data.email||'', data.website||'', data.notes||'', data.razaoSocial||'',
+        data.cnpj||'', data.inscricaoEstadual||'', data.enderecoFiscal||'',
+        data.mainPhone||'', data.whatsapp||'', data.emailFinanceiro||'',
+        data.emailComercial||'', data.status||'Ativo', data.lastEditBy||'', customerId,
+      ]
     );
+  }
+
+  async deleteContact(id) {
+    await this.pool.query(`UPDATE "customerContacts" SET deleted=1 WHERE id=$1`, [id]);
   }
 
   async deleteContacts(customerId, tx) {
     const db = this._db(tx);
-    await db.query(`DELETE FROM "customerContacts" WHERE "customerId" = $1`, [customerId]);
-  }
-
-  async deleteContact(id) {
-    await this.pool.query(`DELETE FROM "customerContacts" WHERE id = $1`, [id]);
+    await db.query(`DELETE FROM "customerContacts" WHERE "customerId"=$1`, [customerId]);
   }
 
   async findAll() {
     const res = await this.pool.query(
-      `SELECT c.id as "customerId", c."customerName", c."customerType",
-              cc.id as "contactId", cc."contactName", cc."contactContact", cc."contactOffice", cc."contactEmail"
-       FROM customers c
-       INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
-       WHERE cc.deleted = 0 ORDER BY c.id ASC, cc.id ASC`
+      `SELECT id, "companyName", "status"
+       FROM customers
+       WHERE TRIM("companyName") <> ''
+       ORDER BY LOWER("companyName") ASC`
     );
     return res.rows;
   }
 
   async findById(customerId) {
-    const res = await this.pool.query(
-      `SELECT c.id as "customerId", c."customerName", c."customerType",
-              cc.id as "contactId", cc."contactName", cc."contactContact", cc."contactOffice", cc."contactEmail"
-       FROM customers c
-       INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
-       WHERE c.id = $1 ORDER BY cc.id ASC`,
-      [customerId]
-    );
-    return res.rows;
+    const [custRes, contRes] = await Promise.all([
+      this.pool.query(`SELECT * FROM customers WHERE id=$1`, [customerId]),
+      this.pool.query(
+        `SELECT id,"firstName","lastName","role","email","whatsapp","notes"
+         FROM "customerContacts"
+         WHERE "customerId"=$1 AND deleted=0
+         ORDER BY id ASC`,
+        [customerId]
+      ),
+    ]);
+    if (!custRes.rows[0]) return null;
+    return { ...custRes.rows[0], contacts: contRes.rows };
   }
 
   async findGrouped() {
     const res = await this.pool.query(
-      `SELECT MIN(c."customerName") as name,
-              MAX(c."customerType") as "customerType",
-              JSON_AGG(JSON_BUILD_OBJECT('id', cc.id, 'contactName', cc."contactName",
-                'contactContact', cc."contactContact", 'contactEmail', cc."contactEmail") ORDER BY LOWER(TRIM(cc."contactName")) ASC) as contacts
+      `SELECT c.id, c."companyName" as name, c.status,
+              COALESCE(
+                JSON_AGG(
+                  JSON_BUILD_OBJECT(
+                    'id', cc.id, 'firstName', cc."firstName", 'lastName', cc."lastName",
+                    'email', cc."email", 'whatsapp', cc."whatsapp", 'role', cc."role"
+                  ) ORDER BY cc.id ASC
+                ) FILTER (WHERE cc.id IS NOT NULL AND cc.deleted=0),
+                '[]'::json
+              ) as contacts
        FROM customers c
-       INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
-       WHERE cc.deleted = 0 AND TRIM(c."customerName") <> ''
-       GROUP BY LOWER(TRIM(c."customerName"))
-       ORDER BY LOWER(TRIM(c."customerName")) ASC`
+       LEFT JOIN "customerContacts" cc ON c.id = cc."customerId"
+       WHERE TRIM(c."companyName") <> ''
+       GROUP BY c.id
+       ORDER BY LOWER(TRIM(c."companyName")) ASC`
     );
     return res.rows;
   }
 
-  async findPaginated({ filters = {}, search = '', limit = 80, offset = 0 } = {}) {
-    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 80, 1), 500);
-    const safeOffset = Math.max(parseInt(offset, 10) || 0, 0);
-    const { where, params } = this._buildWhere({ filters, search });
-    const pData = [...params, safeLimit, safeOffset];
-    const [data, count] = await Promise.all([
-      this.pool.query(
-        `SELECT c.id as "customerId", c."customerName", c."customerType",
-                cc.id as "contactId", cc."contactName", cc."contactContact", cc."contactOffice", cc."contactEmail"
-         FROM customers c INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
-         WHERE ${where} ORDER BY c.id ASC, cc.id ASC
-         LIMIT $${pData.length - 1} OFFSET $${pData.length}`,
-        pData
-      ),
-      this.pool.query(
-        `SELECT COUNT(*)::int AS total, COUNT(DISTINCT c.id)::int AS unique_customers
-         FROM customers c INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
-         WHERE ${where}`,
-        params
-      ),
-    ]);
-    return {
-      rows: data.rows,
-      total: count.rows[0].total,
-      uniqueCustomers: count.rows[0].unique_customers,
-      limit: safeLimit,
-      offset: safeOffset,
-    };
-  }
-
-  async findFilterOptions({ filters = {}, search = '', column = null } = {}) {
-    const keys = column ? [column] : Object.keys(FILTERABLE);
-    const result = {};
-    await Promise.all(keys.filter(k => FILTERABLE[k]).map(async (key) => {
-      const col = FILTERABLE[key];
-      const { where, params } = this._buildWhere({ filters, search, excludeKey: key });
-      const r = await this.pool.query(
-        `SELECT DISTINCT COALESCE(${col}, '') AS value
-         FROM customers c INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
-         WHERE ${where} ORDER BY value ASC`,
-        params
-      );
-      result[key] = r.rows.map(row => row.value);
-    }));
-    return result;
+  async findContactByCustomerAndName(customerName, contactFirstName, tx) {
+    const db = this._db(tx);
+    const res = await db.query(
+      `SELECT cc.id FROM customers c
+       INNER JOIN "customerContacts" cc ON c.id = cc."customerId"
+       WHERE c."companyName" = $1 AND cc."firstName" = $2 AND cc.deleted = 0`,
+      [customerName, contactFirstName || '']
+    );
+    return res.rows[0] || null;
   }
 }
 

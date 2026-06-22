@@ -13,6 +13,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
+import logo from '../../assets/logo-ce.png';
 
 const WEEK_DAYS = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
 
@@ -289,6 +290,11 @@ export default function DayOrderEdit() {
 
   return (
     <Box sx={{ p: 3 }}>
+      {dayOrder.lastEditBy && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          Editado por último por <strong>{dayOrder.lastEditBy}</strong>
+        </Typography>
+      )}
       {/* Header with navigation */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
         <IconButton size="small" onClick={() => navigate(`/editar-ordem-do-dia?id=${dayOrder.prev}`)} disabled={!dayOrder.prev}>
@@ -310,8 +316,8 @@ export default function DayOrderEdit() {
         <table>
           <thead>
             <tr>
-              <th>#</th><th>Duração</th><th>Início</th><th>Atividade</th>
-              <th>Grupo</th><th>Pax</th><th>Idioma</th><th>Guia</th>
+              <th>#</th><th>Status</th><th>Duração</th><th>Início</th><th>Atividade</th>
+              <th>Grupo</th><th>Pax</th><th>Idioma</th><th>Guia</th><th>Obs</th>
             </tr>
           </thead>
           <tbody>
@@ -326,6 +332,7 @@ export default function DayOrderEdit() {
                 }}
               >
                 <td>{i + 1}</td>
+                <td>{t.status || '—'}</td>
                 <td>{t.duration}</td>
                 <td>{t.tourHour}</td>
                 <td>{t.activity}</td>
@@ -333,6 +340,7 @@ export default function DayOrderEdit() {
                 <td>{t.paxTotal}</td>
                 <td>{t.language}</td>
                 <td>{t.guides || '—'}</td>
+                <td style={{ minWidth: 200 }}></td>
               </tr>
             ))}
           </tbody>
@@ -504,12 +512,12 @@ export default function DayOrderEdit() {
         ref={printRef}
         style={{ width: '900px', ...PS.page }}
       >
-        <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-          <div style={PS.h1}>
-            Ordem do Dia — {dayOrder.formatedDate} {WEEK_DAYS[dayOrder.weekDay]}
-          </div>
-          <div style={PS.sub}>
-            {dayOrder.name} &nbsp;|&nbsp; carnavalexperience.com.br &nbsp;|&nbsp; Reservas: (21) 967659549
+        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+          <img src={logo} alt="Carnaval Experience" style={{ height: '70px', marginBottom: '4px' }} />
+          <div style={{ fontSize: '11px', margin: '0' }}>carnavalexperience.com.br</div>
+          <div style={{ fontSize: '11px', margin: '0 0 6px 0' }}>Reservas:(21)967659549</div>
+          <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+            Ordem do Dia {dayOrder.formatedDate} {WEEK_DAYS[dayOrder.weekDay]}
           </div>
         </div>
 
@@ -518,6 +526,7 @@ export default function DayOrderEdit() {
           <thead>
             <tr>
               <th style={PS.th}>#</th>
+              <th style={PS.th}>Status</th>
               <th style={PS.th}>Duração</th>
               <th style={PS.th}>Início</th>
               <th style={PS.th}>Atividade</th>
@@ -525,12 +534,14 @@ export default function DayOrderEdit() {
               <th style={PS.th}>Pax</th>
               <th style={PS.th}>Idioma</th>
               <th style={PS.th}>Guia</th>
+              <th style={PS.th}>Obs</th>
             </tr>
           </thead>
           <tbody>
             {tours.map((t, i) => (
               <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f5f5f5' }}>
                 <td style={PS.td}>{i + 1}</td>
+                <td style={PS.td}>{t.status || '—'}</td>
                 <td style={PS.td}>{t.duration}</td>
                 <td style={PS.td}>{t.tourHour}</td>
                 <td style={PS.td}>{t.activity}</td>
@@ -538,6 +549,7 @@ export default function DayOrderEdit() {
                 <td style={PS.td}>{t.paxTotal}</td>
                 <td style={PS.td}>{t.language}</td>
                 <td style={PS.td}>{t.guides}</td>
+                <td style={{ ...PS.td, minWidth: 160 }}></td>
               </tr>
             ))}
           </tbody>
@@ -592,12 +604,12 @@ export default function DayOrderEdit() {
       {/* ── PRINT SUMMARY (sem funcionários) ── */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0, overflow: 'hidden' }}>
       <div ref={printSummaryRef} style={{ width: '900px', ...PS.page }}>
-        <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-          <div style={PS.h1}>
-            Ordem do Dia — {dayOrder.formatedDate} {WEEK_DAYS[dayOrder.weekDay]}
-          </div>
-          <div style={PS.sub}>
-            {dayOrder.name} &nbsp;|&nbsp; carnavalexperience.com.br &nbsp;|&nbsp; Reservas: (21) 967659549
+        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+          <img src={logo} alt="Carnaval Experience" style={{ height: '70px', marginBottom: '4px' }} />
+          <div style={{ fontSize: '11px', margin: '0' }}>carnavalexperience.com.br</div>
+          <div style={{ fontSize: '11px', margin: '0 0 6px 0' }}>Reservas:(21)967659549</div>
+          <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+            Ordem do Dia {dayOrder.formatedDate} {WEEK_DAYS[dayOrder.weekDay]}
           </div>
         </div>
 
@@ -606,6 +618,7 @@ export default function DayOrderEdit() {
           <thead>
             <tr>
               <th style={PS.th}>#</th>
+              <th style={PS.th}>Status</th>
               <th style={PS.th}>Duração</th>
               <th style={PS.th}>Início</th>
               <th style={PS.th}>Atividade</th>
@@ -613,12 +626,14 @@ export default function DayOrderEdit() {
               <th style={PS.th}>Pax</th>
               <th style={PS.th}>Idioma</th>
               <th style={PS.th}>Guia</th>
+              <th style={PS.th}>Obs</th>
             </tr>
           </thead>
           <tbody>
             {tours.map((t, i) => (
               <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f5f5f5' }}>
                 <td style={PS.td}>{i + 1}</td>
+                <td style={PS.td}>{t.status || '—'}</td>
                 <td style={PS.td}>{t.duration}</td>
                 <td style={PS.td}>{t.tourHour}</td>
                 <td style={PS.td}>{t.activity}</td>
@@ -626,6 +641,7 @@ export default function DayOrderEdit() {
                 <td style={PS.td}>{t.paxTotal}</td>
                 <td style={PS.td}>{t.language}</td>
                 <td style={PS.td}>{t.guides}</td>
+                <td style={{ ...PS.td, minWidth: 160 }}></td>
               </tr>
             ))}
           </tbody>

@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Grid, TextField,
   Chip, IconButton, Tooltip, Paper, Button, CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import FilterAltOffRoundedIcon from '@mui/icons-material/FilterAltOffRounded';
 import ChatBubbleRoundedIcon from '@mui/icons-material/ChatBubbleRounded';
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
+import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded';
 import { DownloadTableExcel } from 'react-export-table-to-excel';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
@@ -20,23 +22,30 @@ import { COLORS } from '../../utils/colors';
 const PAGE_SIZE = 80;
 const MONTHS = getAllMonths();
 
-const DATA_COLUMNS = [
+function buildDataColumns(onCommentClick) {
+  return [
   {
     key: 'company', label: 'Empresa', filterable: true,
+    getCellSx: (val) => (val || '').toLowerCase().includes('cobrar cliente')
+      ? { bgcolor: COLORS.cobrarClienteBg, color: '#fff', fontWeight: 700 }
+      : {},
     render: (val, row) => (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {row.comments ? (
-          <Tooltip arrow placement="top" title={
-            <Box sx={{ whiteSpace: 'pre-line', fontSize: '0.78rem', maxWidth: 320 }}>{row.comments}</Box>
-          }>
-            <Box sx={{
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+        {!(val || '').toLowerCase().includes('cobrar cliente') && row.comments ? (
+          <Box
+            onClick={e => { e.stopPropagation(); onCommentClick(row); }}
+            sx={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 22, height: 22, borderRadius: '6px', bgcolor: '#fdab3d', color: '#fff',
-              cursor: 'help', flexShrink: 0, boxShadow: '0 1px 4px rgba(253,171,61,0.45)',
-            }}>
-              <ChatBubbleRoundedIcon sx={{ fontSize: 13 }} />
-            </Box>
-          </Tooltip>
+              width: 22, height: 22, borderRadius: '6px',
+              bgcolor: '#e53935', color: '#fff',
+              cursor: 'pointer', flexShrink: 0,
+              boxShadow: '0 1px 6px rgba(229,57,53,0.55)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+              '&:hover': { transform: 'scale(1.18)', boxShadow: '0 2px 10px rgba(229,57,53,0.7)' },
+            }}
+          >
+            <ChatBubbleRoundedIcon sx={{ fontSize: 13 }} />
+          </Box>
         ) : null}
         <span>{val}</span>
       </Box>
@@ -66,9 +75,11 @@ const DATA_COLUMNS = [
   { key: 'dateOfRegistrationFormated', label: 'Data do Registro',      filterable: false },
   { key: 'createdBy',                  label: 'Criado por',            filterable: false },
   { key: 'lastEditBy',                 label: 'Editado por',           filterable: false },
-];
+];}
 
-const FILTERABLE_KEYS = DATA_COLUMNS.filter(c => c.filterable).map(c => c.key);
+const STATIC_COLS = buildDataColumns(() => {});
+
+const FILTERABLE_KEYS = STATIC_COLS.filter(c => c.filterable).map(c => c.key);
 
 function buildFilterQS(filters) {
   return Object.entries(filters)
@@ -128,6 +139,7 @@ export default function FinancialTourList() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [commentDialog, setCommentDialog] = useState({ open: false, row: null });
 
   const offsetRef = useRef(0);
   const hasMoreRef = useRef(true);
@@ -264,6 +276,23 @@ export default function FinancialTourList() {
     fetchFirstPage();
   }
 
+  async function markCobrarCliente(tour) {
+    const { isConfirmed } = await Swal.fire({
+      title: 'Cobrar cliente?',
+      text: `O tour Nº ${tour.orderRef} será marcado como "Cobrar Cliente".`,
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: COLORS.cobrarClienteBg,
+    });
+    if (!isConfirmed) return;
+    await apiFetch(`/tours/set-cobrar-cliente?id=${tour.id}`, {
+      method: 'POST',
+      body: JSON.stringify({ lastEditBy: userName }),
+    });
+    fetchFirstPage();
+  }
+
   const rowActions = perm !== 5 ? (row) => (
     <Box sx={{ display: 'flex', gap: 0.5 }}>
       <Tooltip title="Editar" arrow>
@@ -283,11 +312,22 @@ export default function FinancialTourList() {
           </IconButton>
         </Tooltip>
       )}
+      {!(row.company || '').toLowerCase().includes('cobrar cliente') && (
+        <Tooltip title="Marcar como cobrar cliente" arrow>
+          <IconButton size="small" onClick={e => { e.stopPropagation(); markCobrarCliente(row); }}>
+            <RequestQuoteRoundedIcon fontSize="small" sx={{ color: COLORS.cobrarClienteBg }} />
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   ) : null;
 
+  const dataColumns = useMemo(
+    () => buildDataColumns(row => setCommentDialog({ open: true, row })),
+    [],
+  );
   const actionsCol = rowActions ? { key: '_actions', label: 'Ações', render: (_, row) => rowActions(row) } : null;
-  const columns = actionsCol ? [actionsCol, ...DATA_COLUMNS] : DATA_COLUMNS;
+  const columns = actionsCol ? [actionsCol, ...dataColumns] : dataColumns;
 
   const activeFilterCount = Object.values(filters).filter(v => v !== null).length;
 
@@ -391,6 +431,33 @@ export default function FinancialTourList() {
           </Typography>
         )}
       </Box>
+
+      <Dialog
+        open={commentDialog.open}
+        onClose={() => setCommentDialog({ open: false, row: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700, pb: 1 }}>
+          {commentDialog.row && (() => {
+            const r = commentDialog.row;
+            const parts = ['Observações do tour'];
+            if (r.activity) parts.push(r.activity);
+            if (r.formatedTourDate) parts.push(`dia ${r.formatedTourDate}`);
+            if (r.tourHour) parts.push(`hora ${r.tourHour}`);
+            if (r.orderRef) parts.push(`reserva ${r.orderRef}`);
+            return parts.join(' ');
+          })()}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ whiteSpace: 'pre-line', fontSize: '0.92rem' }}>
+            {commentDialog.row?.comments}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCommentDialog({ open: false, row: null })}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

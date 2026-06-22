@@ -10,6 +10,7 @@ import { NumericFormat } from 'react-number-format';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 import { formatAdicional } from '../../utils/functions';
 import { COLORS } from '../../utils/colors';
 
@@ -36,6 +37,7 @@ export default function FinancialTourUpdate() {
   const id = params.get('id');
   const { userName, userPermissions } = useStore();
   const perm = parseInt(userPermissions);
+  const readOnly = isReadOnly(userPermissions);
   const canSeeFinancialHistory = [2, 4, 5].includes(perm);
   const [form, setForm] = useState(null);
   const [products, setProducts]               = useState([]);
@@ -110,6 +112,7 @@ export default function FinancialTourUpdate() {
   }
 
   async function deleteCommission() {
+    if (readOnly) return;
     if (!form.commissionId) return;
     await apiFetch(`/comissions/delete?id=${form.commissionId}`);
     set('commissioned', false);
@@ -117,6 +120,7 @@ export default function FinancialTourUpdate() {
   }
 
   async function handleSubmit() {
+    if (readOnly) return;
     const payload = { ...form, changeRequests, lastEditBy: userName };
     const res = await apiFetch(`/tours/update-financial?id=${id}`, {
       method: 'POST',
@@ -362,24 +366,24 @@ export default function FinancialTourUpdate() {
                       <Table size="small">
                         <TableHead>
                           <TableRow sx={{ bgcolor: COLORS.tableHeaderBg }}>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Data/Hora</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Usuário</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Campo</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>De</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Para</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Data/Hora</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Usuário</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Campo</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>De</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Para</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {officeHistory.map((e) => (
                             <TableRow key={e.id} sx={{ '&:last-child td': { border: 0 } }}>
-                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary, whiteSpace: 'nowrap' }}>
+                              <TableCell sx={{ fontSize: '0.58rem', py: 0.25, px: 1, textAlign: 'center', color: COLORS.tableCellText, whiteSpace: 'nowrap' }}>
                                 {new Date(e.editedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600 }}>{e.editedBy}</TableCell>
                               <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1 }}>
                                 <Chip label={e.fieldLabel} size="small" sx={{ fontSize: '0.58rem', height: 18, bgcolor: `${COLORS.primary}18`, color: COLORS.primary, fontWeight: 600 }} />
                               </TableCell>
-                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary }}>
+                              <TableCell sx={{ fontSize: '0.58rem', py: 0.25, px: 1, textAlign: 'center', color: COLORS.tableCellText }}>
                                 {e.oldValue || <em style={{ color: '#bbb' }}>vazio</em>}
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600, color: COLORS.primary }}>
@@ -402,24 +406,24 @@ export default function FinancialTourUpdate() {
                       <Table size="small">
                         <TableHead>
                           <TableRow sx={{ bgcolor: COLORS.tableHeaderBg }}>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Data/Hora</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Usuário</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Campo</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>De</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontSize: '0.58rem', color: COLORS.tableHeaderText, py: 0.35, px: 1 }}>Para</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Data/Hora</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Usuário</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Campo</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>De</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: '0.52rem', color: COLORS.tableHeaderText, textAlign: 'center', py: 0.35, px: 1 }}>Para</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {financialHistory.map((e) => (
                             <TableRow key={e.id} sx={{ '&:last-child td': { border: 0 } }}>
-                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary, whiteSpace: 'nowrap' }}>
+                              <TableCell sx={{ fontSize: '0.58rem', py: 0.25, px: 1, textAlign: 'center', color: COLORS.tableCellText, whiteSpace: 'nowrap' }}>
                                 {new Date(e.editedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600 }}>{e.editedBy}</TableCell>
                               <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1 }}>
                                 <Chip label={e.fieldLabel} size="small" sx={{ fontSize: '0.58rem', height: 18, bgcolor: '#00c87518', color: '#00a060', fontWeight: 600 }} />
                               </TableCell>
-                              <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, color: COLORS.textSecondary }}>
+                              <TableCell sx={{ fontSize: '0.58rem', py: 0.25, px: 1, textAlign: 'center', color: COLORS.tableCellText }}>
                                 {e.oldValue || <em style={{ color: '#bbb' }}>vazio</em>}
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.64rem', py: 0.25, px: 1, fontWeight: 600, color: '#00a060' }}>
@@ -445,7 +449,7 @@ export default function FinancialTourUpdate() {
         px: 3.5, py: 2, display: 'flex', gap: 1.5, alignItems: 'center',
         bgcolor: '#fff',
       }}>
-        <Button variant="contained" onClick={handleSubmit} sx={{ px: 3.5 }}>
+        <Button variant="contained" onClick={handleSubmit} disabled={readOnly} sx={{ px: 3.5 }}>
           Salvar
         </Button>
         <Button variant="text" sx={{ color: COLORS.textSecondary }} onClick={() => navigate('/listar-tours-financeiro')}>

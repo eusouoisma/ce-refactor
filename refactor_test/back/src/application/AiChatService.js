@@ -25,11 +25,13 @@ Banco de dados PostgreSQL do sistema CE (agência de turismo). Tabelas disponív
   comissionCurrency, comissionPrice (TEXT), comissionPaid (0/1),
   createdBy, lastEditBy, year, dateOfRegistration, deleted (0/1)
 
-"customers" — clientes/agências
-  id, customerName, customerType, createdBy, lastEditBy
+"customers" — agências/clientes B2B
+  id, companyName, address, phone, email, website, notes,
+  razaoSocial, cnpj, inscricaoEstadual, enderecoFiscal,
+  mainPhone, whatsapp, emailFinanceiro, emailComercial, status, createdBy, lastEditBy
 
-"customerContacts" — contatos dos clientes
-  id, customerId, contactName, contactContact, contactOffice, contactEmail, deleted
+"customerContacts" — contatos/funcionários das agências
+  id, customerId, firstName, lastName, role, email, whatsapp, notes, deleted
 
 "product" — produtos/atividades oferecidas
   id, type, category, name, duration
@@ -153,33 +155,30 @@ INSTRUÇÕES:
       messages,
     });
 
-    // Agentic loop: handle tool calls
+    // Agentic loop: handle tool calls (including parallel multi-tool responses)
     while (response.stop_reason === 'tool_use') {
-      const toolUseBlock = response.content.find(b => b.type === 'tool_use');
-      if (!toolUseBlock) break;
+      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
+      if (toolUseBlocks.length === 0) break;
 
-      let toolResult;
-      try {
-        const rows = await this.repo.runReadOnlyQuery(toolUseBlock.input.sql);
-        toolResult = JSON.stringify(rows.slice(0, 100));
-      } catch (err) {
-        toolResult = JSON.stringify({ error: err.message });
-      }
+      // Execute all tool calls in parallel and collect results
+      const toolResults = await Promise.all(
+        toolUseBlocks.map(async (toolUseBlock) => {
+          let result;
+          try {
+            const rows = await this.repo.runReadOnlyQuery(toolUseBlock.input.sql);
+            result = JSON.stringify(rows.slice(0, 100));
+          } catch (err) {
+            result = JSON.stringify({ error: err.message });
+          }
+          return { type: 'tool_result', tool_use_id: toolUseBlock.id, content: result };
+        })
+      );
 
-      // Build next turn with assistant response + tool result
+      // Build next turn: one tool_result per tool_use block
       const nextMessages = [
         ...messages,
         { role: 'assistant', content: response.content },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'tool_result',
-              tool_use_id: toolUseBlock.id,
-              content: toolResult,
-            },
-          ],
-        },
+        { role: 'user', content: toolResults },
       ];
 
       response = await this.client.messages.create({

@@ -8,28 +8,34 @@ import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
+import { useStore } from '../../components/Store';
 import DataTable from '../../components/DataTable';
 import { COLORS } from '../../utils/colors';
+import { PERMISSION_LABELS, isReadOnly } from '../../utils/permissions';
 
-const makeActions = (deleteUser) => (row) => (
-  <Tooltip title="Excluir usuário" arrow>
-    <IconButton size="small" onClick={e => { e.stopPropagation(); deleteUser(row.id); }}>
-      <DeleteRoundedIcon fontSize="small" color="error" />
-    </IconButton>
-  </Tooltip>
+const makeActions = (deleteUser, canEdit) => (row) => (
+  canEdit ? (
+    <Tooltip title="Excluir usuário" arrow>
+      <IconButton size="small" onClick={e => { e.stopPropagation(); deleteUser(row.id); }}>
+        <DeleteRoundedIcon fontSize="small" color="error" />
+      </IconButton>
+    </Tooltip>
+  ) : null
 );
 
 const COLUMNS = (rowActions) => [
   { key: '_actions',    label: 'Ações',     render: (_, row) => rowActions(row) },
-  { key: 'id',          label: 'ID' },
   { key: 'username',    label: 'Username' },
   { key: 'name',        label: 'Nome' },
-  { key: 'permissions', label: 'Permissão' },
+  { key: 'email',       label: 'Email' },
+  { key: 'permissions', label: 'Permissão', render: (val) => PERMISSION_LABELS[Number(val)] ?? val },
 ];
 
-const EMPTY_USER = { username: '', name: '', permissions: '1', password: '' };
+const EMPTY_USER = { username: '', name: '', permissions: '1', password: '', email: '' };
 
 export default function Users() {
+  const { userPermissions } = useStore();
+  const canEdit = !isReadOnly(userPermissions);
   const [users, setUsers] = useState([]);
   const [newUser, setNewUser] = useState(EMPTY_USER);
   const [loading, setLoading] = useState(false);
@@ -46,6 +52,7 @@ export default function Users() {
   useEffect(() => { load(); }, [load]);
 
   async function createUser() {
+    if (!canEdit) return;
     const res = await apiFetch('/users/create', {
       method: 'POST',
       body: JSON.stringify(newUser),
@@ -60,13 +67,14 @@ export default function Users() {
   }
 
   async function deleteUser(id) {
+    if (!canEdit) return;
     const result = await Swal.fire({ title: 'Excluir usuário?', showCancelButton: true, confirmButtonText: 'Sim', cancelButtonText: 'Não' });
     if (!result.isConfirmed) return;
     await apiFetch(`/users/delete?id=${id}`);
     load();
   }
 
-  const rowActions = makeActions(deleteUser);
+  const rowActions = makeActions(deleteUser, canEdit);
   const columns = COLUMNS(rowActions);
 
   return (
@@ -75,20 +83,27 @@ export default function Users() {
         <Typography variant="h5">Usuários</Typography>
       </Box>
 
+      {canEdit && (
       <Card sx={{ mb: 2.5 }}>
         <CardContent>
           <Typography variant="subtitle1" sx={{ mb: 1.5 }}>Novo Usuário</Typography>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={3}>
+            <Grid item xs={2}>
               <TextField fullWidth size="small" label="Username"
                 value={newUser.username}
                 onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))}
               />
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={2}>
               <TextField fullWidth size="small" label="Nome"
                 value={newUser.name}
                 onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={3}>
+              <TextField fullWidth size="small" label="Email (para 2FA)"
+                value={newUser.email}
+                onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))}
               />
             </Grid>
             <Grid item xs={2}>
@@ -96,29 +111,27 @@ export default function Users() {
                 <InputLabel>Permissão</InputLabel>
                 <Select value={newUser.permissions} label="Permissão"
                   onChange={e => setNewUser(p => ({ ...p, permissions: e.target.value }))}>
-                  {[1,2,3,4,5,6].map(n => <MenuItem key={n} value={String(n)}>{n}</MenuItem>)}
+                  {Object.entries(PERMISSION_LABELS).map(([val, label]) => (
+                    <MenuItem key={val} value={val}>{label}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={2}>
               <TextField fullWidth size="small" label="Senha" type="password"
                 value={newUser.password}
                 onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))}
               />
             </Grid>
             <Grid item xs={1}>
-              <Button
-                variant="contained"
-                startIcon={<PersonAddRoundedIcon />}
-                onClick={createUser}
-                fullWidth
-              >
+              <Button variant="contained" startIcon={<PersonAddRoundedIcon />} onClick={createUser} fullWidth>
                 Criar
               </Button>
             </Grid>
           </Grid>
         </CardContent>
       </Card>
+      )}
 
       <DataTable
         columns={columns}

@@ -5,6 +5,7 @@ import {
   Box, Typography, Card, CardContent, Grid, TextField, Button,
   Table, TableHead, TableRow, TableCell, TableBody, TableContainer,
   Paper, Chip, Tooltip, Badge,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import FilterAltRoundedIcon from '@mui/icons-material/FilterAltRounded';
@@ -19,20 +20,19 @@ import { COLORS } from '../../utils/colors';
 const MONTHS = getAllMonths();
 
 // mesmo esquema de cores do DataTable (altColumns=true)
-const ACCENT_H = '#deedfb';
-const ACCENT_B = '#eef5fd';
-const getHeaderBg   = i => i % 2 === 0 ? ACCENT_H           : COLORS.tableHeaderBg;
-const getHeaderColor= i => i % 2 === 0 ? COLORS.primary      : COLORS.tableHeaderText;
-const getCellBg     = i => i % 2 === 0 ? ACCENT_B            : '#ffffff';
+const getHeaderBg   = i => i % 2 === 0 ? COLORS.tableHeaderAltBg : COLORS.tableHeaderBg;
+const getHeaderColor= i => i % 2 === 0 ? COLORS.primary           : COLORS.tableHeaderText;
+const getCellBg     = i => i % 2 === 0 ? COLORS.tableCellAltBg    : '#ffffff';
 
 const HEADER_SX = {
   fontWeight: 600,
-  fontSize: '0.58rem',
+  fontSize: '0.52rem',
   whiteSpace: 'nowrap',
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
-  borderBottom: `2px solid ${COLORS.border}`,
-  borderRight: `1px solid ${COLORS.border}`,
+  textAlign: 'center',
+  borderBottom: `2px solid ${COLORS.tableBorder}`,
+  borderRight: `1px solid ${COLORS.tableBorder}`,
   py: 0.35,
   px: 1,
   position: 'sticky',
@@ -70,6 +70,26 @@ function Indicator({ label, value }) {
   );
 }
 
+function ObsDialog({ open, employeeName, initialValue, onClose, onSave }) {
+  const [value, setValue] = useState(initialValue ?? '');
+  useEffect(() => { if (open) setValue(initialValue ?? ''); }, [open, initialValue]);
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', pb: 1 }}>
+        Observação{employeeName ? ` — ${employeeName}` : ''}
+      </DialogTitle>
+      <DialogContent>
+        <TextField fullWidth multiline rows={3} size="small" autoFocus
+          value={value} onChange={e => setValue(e.target.value)} sx={{ mt: 1 }} />
+      </DialogContent>
+      <DialogActions sx={{ px: 2.5, pb: 2 }}>
+        <Button variant="outlined" color="inherit" onClick={onClose}>Cancelar</Button>
+        <Button variant="contained" onClick={() => onSave(value)}>Salvar</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export default function DayOrderPayments() {
   const { userPermissions } = useStore();
   const canEdit = ![5].includes(parseInt(userPermissions));
@@ -80,8 +100,9 @@ export default function DayOrderPayments() {
   const [filters,          setFilters]          = useState({});   // { colCode: string[]|null }
   const [modalCol,         setModalCol]         = useState(null);
   const [editingPayment,   setEditingPayment]   = useState(null);
-  const [editingComments,  setEditingComments]  = useState(null);
   const [localValues,      setLocalValues]      = useState({});
+  const [obsDialog,        setObsDialog]        = useState(null); // { id, value, employeeName }
+  const [selected,         setSelected]         = useState([]);
 
   const tableRef = useRef();
 
@@ -114,7 +135,16 @@ export default function DayOrderPayments() {
   }
 
   function getColumnValues(colCode) {
-    return [...new Set(payments.map(p => String(p[colCode])))].sort((a, b) => {
+    // filter using all active filters EXCEPT the one for this column (cascading)
+    const base = payments.filter(p =>
+      COLUMNS.every(col => {
+        if (col.code === colCode) return true;
+        const vals = filters[col.code];
+        if (!vals) return true;
+        return vals.includes(String(p[col.code]));
+      })
+    );
+    return [...new Set(base.map(p => String(p[colCode])))].sort((a, b) => {
       if (colCode === 'value') return parseFloat(a) - parseFloat(b);
       return a.localeCompare(b);
     });
@@ -144,15 +174,16 @@ export default function DayOrderPayments() {
     else { Swal.fire('Valor atualizado!', '', 'success'); setEditingPayment(null); load(year, activeMonths); }
   }
 
-  async function saveComments(paymentId, value) {
-    if (!canEdit) return;
+  async function saveComments(value) {
+    if (!canEdit || !obsDialog) return;
     const res  = await apiFetch('/day-order/change-individual-comments', {
       method: 'POST',
-      body: JSON.stringify({ paymentId, commentsNewValue: value }),
+      body: JSON.stringify({ paymentId: obsDialog.id, commentsNewValue: value }),
     });
     const data = await res.json();
-    if (data.error) Swal.fire({ icon: 'error', title: 'Oops...', text: 'Algo deu errado!' });
-    else { Swal.fire('Comentário atualizado!', '', 'success'); setEditingComments(null); load(year, activeMonths); }
+    if (data.error) { Swal.fire({ icon: 'error', title: 'Oops...', text: 'Algo deu errado!' }); return; }
+    setObsDialog(null);
+    load(year, activeMonths);
   }
 
   return (
@@ -224,13 +255,14 @@ export default function DayOrderPayments() {
         component={Paper}
         sx={{
           borderRadius: 2,
-          border: `1px solid ${COLORS.border}`,
+          border: `1px solid ${COLORS.tableBorder}`,
           boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
           maxHeight: 'calc(100vh - 280px)',
           overflow: 'auto',
-          '&::-webkit-scrollbar': { width: 6, height: 6 },
-          '&::-webkit-scrollbar-track': { background: 'transparent' },
-          '&::-webkit-scrollbar-thumb': { background: 'rgba(0,0,0,0.14)', borderRadius: 4 },
+          '&::-webkit-scrollbar': { width: 8, height: 8 },
+          '&::-webkit-scrollbar-track': { background: '#f0f0f0', borderRadius: 4 },
+          '&::-webkit-scrollbar-thumb': { background: 'rgba(0,0,0,0.35)', borderRadius: 4 },
+          '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(0,0,0,0.55)' },
         }}
       >
         <Table size="small" stickyHeader ref={tableRef}>
@@ -271,26 +303,32 @@ export default function DayOrderPayments() {
           </TableHead>
 
           <TableBody>
-            {filteredPayments.map(p => (
+            {filteredPayments.map(p => {
+              const isSelected = selected.includes(p.id);
+              return (
               <TableRow
-                key={p.paymentId}
-                sx={{ '&:hover td': { bgcolor: COLORS.tableHover } }}
+                key={p.id}
+                onClick={() => setSelected(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id])}
+                sx={{ cursor: 'pointer', bgcolor: isSelected ? '#fdab3d' : undefined, '&:hover td': { bgcolor: isSelected ? '#f09c28' : COLORS.tableHover } }}
               >
                 {COLUMNS.map((col, ci) => {
-                  const cellBg = getCellBg(ci);
+                  const cellBg = isSelected ? undefined : getCellBg(ci);
 
                   if (col.code === 'value') return (
                     <TableCell
                       key={col.code}
-                      onClick={() => canEdit && setEditingPayment(p.paymentId)}
+                      onClick={e => { e.stopPropagation(); canEdit && setEditingPayment(p.id); }}
                       sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, whiteSpace: 'nowrap', cursor: canEdit ? 'pointer' : 'default' }}
                     >
-                      {editingPayment === p.paymentId ? (
+                      {editingPayment === p.id ? (
                         <TextField
                           size="small" type="number" defaultValue={p.value} sx={{ width: 90 }} autoFocus
-                          onChange={e => setLocalValues(prev => ({ ...prev, [p.paymentId]: e.target.value }))}
-                          onBlur={() => saveValue(p.paymentId, localValues[p.paymentId] ?? p.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveValue(p.paymentId, localValues[p.paymentId] ?? p.value); }}
+                          onChange={e => setLocalValues(prev => ({ ...prev, [p.id]: e.target.value }))}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveValue(p.id, localValues[p.id] ?? p.value);
+                            if (e.key === 'Escape') setEditingPayment(null);
+                          }}
+                          onClick={e => e.stopPropagation()}
                         />
                       ) : (
                         <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem', color: COLORS.primary }}>
@@ -303,38 +341,29 @@ export default function DayOrderPayments() {
                   if (col.code === 'paymentComments') return (
                     <TableCell
                       key={col.code}
-                      onClick={() => canEdit && setEditingComments(p.paymentId)}
-                      sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, cursor: canEdit ? 'pointer' : 'default' }}
+                      onClick={e => { e.stopPropagation(); canEdit && setObsDialog({ id: p.id, value: p.paymentComments || '', employeeName: p.employeeName }); }}
+                      sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, cursor: canEdit ? 'pointer' : 'default', maxWidth: 200 }}
                     >
-                      {editingComments === p.paymentId ? (
-                        <TextField
-                          size="small" defaultValue={p.paymentComments} sx={{ width: 140 }} autoFocus
-                          onChange={e => setLocalValues(prev => ({ ...prev, [`c${p.paymentId}`]: e.target.value }))}
-                          onBlur={() => saveComments(p.paymentId, localValues[`c${p.paymentId}`] ?? p.paymentComments)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveComments(p.paymentId, localValues[`c${p.paymentId}`] ?? p.paymentComments); }}
-                        />
-                      ) : (
-                        <Typography variant="body2" sx={{ fontSize: '0.8rem', color: p.paymentComments ? COLORS.textPrimary : COLORS.textSecondary, fontStyle: p.paymentComments ? 'normal' : 'italic' }}>
-                          {p.paymentComments || '—'}
-                        </Typography>
-                      )}
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', color: COLORS.tableCellText, fontStyle: p.paymentComments ? 'normal' : 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.paymentComments || '—'}
+                      </Typography>
                     </TableCell>
                   );
 
                   if (col.code === 'workedTime') return (
-                    <TableCell key={col.code} sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, fontSize: '0.64rem', color: COLORS.textPrimary, whiteSpace: 'nowrap' }}>
+                    <TableCell key={col.code} sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, fontSize: '0.58rem', textAlign: 'center', color: COLORS.tableCellText, whiteSpace: 'nowrap' }}>
                       {subHours(p.departure, p.arrival)}
                     </TableCell>
                   );
 
                   return (
-                    <TableCell key={col.code} sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, fontSize: '0.64rem', color: COLORS.textPrimary, whiteSpace: 'nowrap' }}>
+                    <TableCell key={col.code} sx={{ bgcolor: cellBg, borderBottom: `1px solid ${COLORS.tableBorder}`, borderRight: `1px solid ${COLORS.tableBorder}`, py: 0.25, fontSize: '0.58rem', textAlign: 'center', color: COLORS.tableCellText, whiteSpace: 'nowrap' }}>
                       {p[col.code] ?? ''}
                     </TableCell>
                   );
                 })}
               </TableRow>
-            ))}
+            );})}
             {filteredPayments.length === 0 && (
               <TableRow>
                 <TableCell colSpan={COLUMNS.length} sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.88rem', border: 'none' }}>
@@ -357,6 +386,15 @@ export default function DayOrderPayments() {
           </Typography>
         )}
       </Box>
+
+      {/* ── Dialog: Editar OBS ── */}
+      <ObsDialog
+        open={!!obsDialog}
+        employeeName={obsDialog?.employeeName}
+        initialValue={obsDialog?.value}
+        onClose={() => setObsDialog(null)}
+        onSave={saveComments}
+      />
 
       {/* ── FILTER MODAL (reutiliza o componente do DataTable) ── */}
       <FilterModal

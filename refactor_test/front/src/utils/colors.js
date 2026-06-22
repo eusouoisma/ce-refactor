@@ -18,12 +18,18 @@ export const COLORS = {
 
   // Table / board
   tableHeaderBg:   '#f5f6f8',
-  tableHeaderText: '#676879',
+  tableHeaderText: '#000000',
+  tableCellText:   '#000000',
+  tableHeaderAltBg:'#deedfb',
   tableWhite:      '#ffffff',
   tableAlt:        '#fafafa',
+  tableCellAltBg:  '#eef5fd',
   tableHover:      '#e8f4ff',
   tableSelected:   '#cce5ff',
-  tableBorder:     '#e6e9ef',
+  tableBorder:     '#000000',
+
+  // Feature-specific
+  cobrarClienteBg: '#f75300',
 
   // Status pills (Monday color set)
   statusDone:    '#00c875',

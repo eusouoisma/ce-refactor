@@ -58,22 +58,25 @@ const thSx = {
   bgcolor: COLORS.tableHeaderBg,
   color: COLORS.tableHeaderText,
   fontWeight: 600,
-  fontSize: '0.58rem',
+  fontSize: '0.52rem',
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
-  borderBottom: `2px solid ${COLORS.border}`,
-  borderRight: `1px solid ${COLORS.border}`,
+  textAlign: 'center',
+  borderBottom: `2px solid ${COLORS.tableBorder}`,
+  borderRight: `1px solid ${COLORS.tableBorder}`,
   whiteSpace: 'nowrap',
   py: 0.3,
   px: 1,
 };
 
 const cellSx = (i) => ({
-  fontSize: '0.66rem',
+  fontSize: '0.6rem',
+  textAlign: 'center',
   py: 0.25,
   px: 1,
-  bgcolor: i % 2 === 0 ? '#fff' : '#fafafa',
-  borderRight: `1px solid ${COLORS.border}`,
+  color: COLORS.tableCellText,
+  bgcolor: i % 2 === 0 ? COLORS.tableCellAltBg : '#ffffff',
+  borderRight: `1px solid ${COLORS.tableBorder}`,
   borderBottom: `1px solid ${COLORS.border}`,
 });
 
@@ -118,7 +121,7 @@ export default function AnalysisByCustomers() {
   const pieOpts = {
     plugins: {
       datalabels: {
-        color: '#fff',
+        
         formatter: (_, ctx) => ctx.chart.data.labels[ctx.dataIndex],
         font: { weight: 'bold', size: 12 },
       },

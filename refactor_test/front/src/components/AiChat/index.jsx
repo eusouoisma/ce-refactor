@@ -191,7 +191,7 @@ function generateSessionId() {
 }
 
 export default function AiChat() {
-  const { userName } = useStore();
+  const { userName, userPermissions } = useStore();
   const [open, setOpen] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -285,7 +285,7 @@ export default function AiChat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  if (!userName) return null;
+  if (!userName || ![4, 5].includes(Number(userPermissions))) return null;
 
   return (
     <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 1300 }}>

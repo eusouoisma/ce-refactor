@@ -12,6 +12,7 @@ import Swal from 'sweetalert2';
 import { DownloadTableExcel } from 'react-export-table-to-excel';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 import { getAllMonths } from '../../utils/functions';
 import DataTable from '../../components/DataTable';
 import { COLORS } from '../../utils/colors';
@@ -19,33 +20,37 @@ import { COLORS } from '../../utils/colors';
 const PAGE_SIZE = 80;
 const MONTHS = getAllMonths();
 
-const makeActions = (navigate, deleteItem, pay, unpay) => (row) => (
+const makeActions = (navigate, deleteItem, pay, unpay, canEdit) => (row) => (
   <Box sx={{ display: 'flex', gap: 0.5 }}>
     <Tooltip title="Editar" arrow>
       <IconButton size="small" onClick={e => { e.stopPropagation(); navigate(`/editar-comissao?id=${row.id}`); }}>
         <EditRoundedIcon fontSize="small" sx={{ color: COLORS.primary }} />
       </IconButton>
     </Tooltip>
-    <Tooltip title="Excluir" arrow>
-      <IconButton size="small" onClick={e => { e.stopPropagation(); deleteItem(row.id); }}>
-        <DeleteRoundedIcon fontSize="small" color="error" />
-      </IconButton>
-    </Tooltip>
-    {row.comissionPaid != 1
-      ? (
-        <Tooltip title="Marcar como pago" arrow>
-          <IconButton size="small" onClick={e => { e.stopPropagation(); pay(row.id); }}>
-            <PaidRoundedIcon fontSize="small" color="success" />
+    {canEdit && (
+      <>
+        <Tooltip title="Excluir" arrow>
+          <IconButton size="small" onClick={e => { e.stopPropagation(); deleteItem(row.id); }}>
+            <DeleteRoundedIcon fontSize="small" color="error" />
           </IconButton>
         </Tooltip>
-      ) : (
-        <Tooltip title="Desmarcar pagamento" arrow>
-          <IconButton size="small" onClick={e => { e.stopPropagation(); unpay(row.id); }}>
-            <MoneyOffRoundedIcon fontSize="small" color="warning" />
-          </IconButton>
-        </Tooltip>
-      )
-    }
+        {row.comissionPaid != 1
+          ? (
+            <Tooltip title="Marcar como pago" arrow>
+              <IconButton size="small" onClick={e => { e.stopPropagation(); pay(row.id); }}>
+                <PaidRoundedIcon fontSize="small" color="success" />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip title="Desmarcar pagamento" arrow>
+              <IconButton size="small" onClick={e => { e.stopPropagation(); unpay(row.id); }}>
+                <MoneyOffRoundedIcon fontSize="small" color="warning" />
+              </IconButton>
+            </Tooltip>
+          )
+        }
+      </>
+    )}
   </Box>
 );
 
@@ -80,7 +85,8 @@ function Indicator({ label, value }) {
 
 export default function ComissionList() {
   const navigate = useNavigate();
-  const { userName } = useStore();
+  const { userName, userPermissions } = useStore();
+  const canEdit = !isReadOnly(userPermissions);
   const tableRef = useRef(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [activeMonths, setActiveMonths] = useState([new Date().getMonth() + 1]);
@@ -89,7 +95,7 @@ export default function ComissionList() {
   const [totals, setTotals] = useState({ totalReal: 0, totalDollar: 0 });
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
+  const [selectedRow, setSelectedRow] = useState([]);
 
   const offsetRef = useRef(0);
   const hasMoreRef = useRef(true);
@@ -146,6 +152,7 @@ export default function ComissionList() {
   }
 
   async function deleteItem(id) {
+    if (!canEdit) return;
     const result = await Swal.fire({ title: 'Excluir comissão?', showCancelButton: true, confirmButtonText: 'Sim', cancelButtonText: 'Não' });
     if (!result.isConfirmed) return;
     await apiFetch(`/comissions/delete?id=${id}`);
@@ -153,16 +160,18 @@ export default function ComissionList() {
   }
 
   async function pay(id) {
+    if (!canEdit) return;
     await apiFetch(`/comissions/pay?id=${id}&lastEditBy=${userName}`);
     fetchFirstPage();
   }
 
   async function unpay(id) {
+    if (!canEdit) return;
     await apiFetch(`/comissions/unpay?id=${id}&lastEditBy=${userName}`);
     fetchFirstPage();
   }
 
-  const rowActions = makeActions(navigate, deleteItem, pay, unpay);
+  const rowActions = makeActions(navigate, deleteItem, pay, unpay, canEdit);
   const columns = COLUMNS(rowActions);
 
   return (
@@ -216,8 +225,8 @@ export default function ComissionList() {
         altColumns
         emptyMessage="Nenhuma comissão encontrada para o período selecionado."
         tableRef={tableRef}
-        onRowClick={row => setSelectedRow(p => p === row.id ? null : row.id)}
-        getRowSx={row => row.id === selectedRow ? { bgcolor: '#fff176' } : {}}
+        onRowClick={row => setSelectedRow(p => p.includes(row.id) ? p.filter(id => id !== row.id) : [...p, row.id])}
+        getRowSx={row => selectedRow.includes(row.id) ? { bgcolor: '#fdab3d' } : {}}
         onBottomReached={loadMore}
       />
 

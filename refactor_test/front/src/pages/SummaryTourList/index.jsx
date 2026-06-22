@@ -5,6 +5,7 @@ import {
   Chip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Paper,
   CircularProgress,
 } from '@mui/material';
+import ChatBubbleRoundedIcon from '@mui/icons-material/ChatBubbleRounded';
 import { DownloadTableExcel } from 'react-export-table-to-excel';
 import { apiFetch } from '../../utils/api';
 import { getAllMonths, formatAdicional } from '../../utils/functions';
@@ -36,7 +37,11 @@ const GroupsCell = React.memo(function GroupsCell({ initialValue, onSave }) {
     <TextField
       size="small"
       type="number"
-      sx={{ width: 56, '& .MuiInputBase-input': { py: 0.3, px: 0.75, fontSize: '0.78rem' } }}
+      sx={{
+        width: 56,
+        '& .MuiInputBase-input': { py: 0.3, px: 0.75, fontSize: '0.78rem', color: 'inherit', textAlign: 'center' },
+        '& fieldset': { borderColor: '#000 !important' },
+      }}
       value={value}
       onChange={e => setValue(parseInt(e.target.value) || 0)}
       onBlur={() => onSave(value)}
@@ -91,6 +96,7 @@ export default function SummaryTourList() {
     setSearchParams(params, { replace: true });
   }, [year, activeMonths, filters]); // eslint-disable-line react-hooks/exhaustive-deps
   const [clientModal, setClientModal] = useState({ open: false, clients: [], activity: '', date: '', hour: '' });
+  const [commentDialog, setCommentDialog] = useState({ open: false, row: null });
 
   const offsetRef  = useRef(0);
   const hasMoreRef = useRef(true);
@@ -176,7 +182,32 @@ export default function SummaryTourList() {
   }, [fetchFirstPage]);
 
   const columns = useMemo(() => [
-    { key: 'formatedTourDate', label: 'Data',      filterable: true },
+    {
+      key: 'formatedTourDate',
+      label: 'Data',
+      filterable: true,
+      render: (val, row) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {row.comments ? (
+            <Box
+              onClick={e => { e.stopPropagation(); setCommentDialog({ open: true, row }); }}
+              sx={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 22, height: 22, borderRadius: '6px',
+                bgcolor: '#e53935', color: '#fff',
+                cursor: 'pointer', flexShrink: 0,
+                boxShadow: '0 1px 6px rgba(229,57,53,0.55)',
+                transition: 'transform 0.15s, box-shadow 0.15s',
+                '&:hover': { transform: 'scale(1.18)', boxShadow: '0 2px 10px rgba(229,57,53,0.7)' },
+              }}
+            >
+              <ChatBubbleRoundedIcon sx={{ fontSize: 13 }} />
+            </Box>
+          ) : null}
+          {val}
+        </Box>
+      ),
+    },
     { key: '_dia',             label: 'Dia',        render: (_, row) => row.tourDate ? DAYS[new Date(String(row.tourDate).split('T')[0] + 'T00:00:00').getUTCDay()] : '' },
     { key: 'tourHour',         label: 'Horário',    filterable: true },
     { key: 'activity',         label: 'Atividade',  filterable: true },
@@ -301,6 +332,32 @@ export default function SummaryTourList() {
           {loading ? 'Carregando...' : `${tours.length} de ${total}`}
         </Typography>
       </Box>
+
+      <Dialog
+        open={commentDialog.open}
+        onClose={() => setCommentDialog({ open: false, row: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700, pb: 1 }}>
+          {commentDialog.row && (() => {
+            const r = commentDialog.row;
+            const parts = ['Observações do tour'];
+            if (r.activity) parts.push(r.activity);
+            if (r.formatedTourDate) parts.push(`dia ${r.formatedTourDate}`);
+            if (r.tourHour) parts.push(`hora ${r.tourHour}`);
+            return parts.join(' ');
+          })()}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ whiteSpace: 'pre-line', fontSize: '0.92rem' }}>
+            {commentDialog.row?.comments}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCommentDialog({ open: false, row: null })}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={clientModal.open}

@@ -52,39 +52,39 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<PrivateRoute><Default /></PrivateRoute>} />
-      <Route path="/quick-search" element={P([1,2,4,5], QuickSearch)} />
-      <Route path="/cadastrar-tour" element={P([1,2,4,5], TourInput)} />
-      <Route path="/importar-planne" element={P([1,2,4,5], PlanneTourImport)} />
-      <Route path="/listar-tours" element={P([1,2,4,5], TourList)} />
-      <Route path="/editar-tour" element={P([1,2,4,5], TourUpdate)} />
-      <Route path="/tours-cancelados" element={P([1,2,3,4,5], CanceledList)} />
-      <Route path="/listar-tours-resumido" element={P([1,2,3,4,5], SummaryTourList)} />
-      <Route path="/imprimir-lista" element={P([1,2,4,5], PrintList)} />
+      <Route path="/quick-search" element={P([1,2,4,5,7], QuickSearch)} />
+      <Route path="/cadastrar-tour" element={P([1,2,4,5,7], TourInput)} />
+      <Route path="/importar-planne" element={P([1,2,4,5,7], PlanneTourImport)} />
+      <Route path="/listar-tours" element={P([1,2,4,5,7], TourList)} />
+      <Route path="/editar-tour" element={P([1,2,4,5,7], TourUpdate)} />
+      <Route path="/tours-cancelados" element={P([1,2,3,4,5,7], CanceledList)} />
+      <Route path="/listar-tours-resumido" element={P([1,2,3,4,5,7], SummaryTourList)} />
+      <Route path="/imprimir-lista" element={P([1,2,4,5,7], PrintList)} />
       <Route path="/cadastrar-tour-financeiro" element={P([2,4,5], FinancialTourInput)} />
       <Route path="/listar-tours-financeiro" element={P([2,4,5], FinancialTourList)} />
       <Route path="/editar-tour-financeiro" element={P([2,4,5], FinancialTourUpdate)} />
-      <Route path="/cadastrar-cliente" element={P([1,2,3,4,5], CustomerInput)} />
-      <Route path="/listar-clientes" element={P([1,2,3,4,5], CustomersList)} />
-      <Route path="/editar-cliente" element={P([1,2,3,4,5], CustomerUpdate)} />
-      <Route path="/listar-comissoes" element={P([1,2,3,4,5], ComissionList)} />
-      <Route path="/editar-comissao" element={P([1,2,3,4,5], ComissionUpdate)} />
-      <Route path="/ordem-do-dia" element={P([1,2,3,4,5], DayOrderList)} />
-      <Route path="/editar-ordem-do-dia" element={P([1,2,3,4,5], DayOrderEdit)} />
-      <Route path="/calendario-ordem-do-dia" element={P([1,2,3,4,5], DayOrderCalendar)} />
+      <Route path="/cadastrar-cliente" element={P([1,2,3,4,5,7], CustomerInput)} />
+      <Route path="/listar-clientes" element={P([1,2,3,4,5,7], CustomersList)} />
+      <Route path="/editar-cliente" element={P([1,2,3,4,5,7], CustomerUpdate)} />
+      <Route path="/listar-comissoes" element={P([1,2,3,4,5,7], ComissionList)} />
+      <Route path="/editar-comissao" element={P([1,2,3,4,5,7], ComissionUpdate)} />
+      <Route path="/ordem-do-dia" element={P([1,2,3,4,5,7], DayOrderList)} />
+      <Route path="/editar-ordem-do-dia" element={P([1,2,3,4,5,7], DayOrderEdit)} />
+      <Route path="/calendario-ordem-do-dia" element={P([1,2,3,4,5,7], DayOrderCalendar)} />
       <Route path="/pagamentos-ordem-do-dia" element={P([2,4,5], DayOrderPayments)} />
-      <Route path="/opcoes-ordem-do-dia" element={P([1,2,3,4,5], DayOrderSettings)} />
-      <Route path="/cadastrar-produto" element={P([1,2,3,4,5], ProductInput)} />
-      <Route path="/cadastrar-adicional" element={P([1,2,3,4,5], ProductInput)} />
-      <Route path="/listar-produtos" element={P([1,2,3,4,5], ProductList)} />
-      <Route path="/listar-adicionais" element={P([1,2,3,4,5], ProductList)} />
-      <Route path="/editar-produto" element={P([1,2,3,4,5], ProductUpdate)} />
-      <Route path="/configuracoes" element={P([1,2,4,5], Settings)} />
+      <Route path="/opcoes-ordem-do-dia" element={P([1,2,3,4,5,7], DayOrderSettings)} />
+      <Route path="/cadastrar-produto" element={P([1,2,3,4,5,7], ProductInput)} />
+      <Route path="/cadastrar-adicional" element={P([1,2,3,4,5,7], ProductInput)} />
+      <Route path="/listar-produtos" element={P([1,2,3,4,5,7], ProductList)} />
+      <Route path="/listar-adicionais" element={P([1,2,3,4,5,7], ProductList)} />
+      <Route path="/editar-produto" element={P([1,2,3,4,5,7], ProductUpdate)} />
+      <Route path="/configuracoes" element={P([1,2,4,5,7], Settings)} />
       <Route path="/usuarios" element={P([4,5], Users)} />
-      <Route path="/meu-usuario" element={P([1,2,3,4,5,6], MyUser)} />
-      <Route path="/analises-por-pais" element={PE([2,4,5,6], AnalysisByCountry)} />
-      <Route path="/analises-por-cliente" element={PE([2,4,5,6], AnalysisByCustomers)} />
-      <Route path="/analises-por-hora" element={PE([2,4,5,6], AnalysisByHour)} />
-      <Route path="/analises-por-produto" element={PE([2,4,5,6], AnalysisByProduct)} />
+      <Route path="/meu-usuario" element={P([1,2,3,4,5,6,7], MyUser)} />
+      <Route path="/analises-por-pais" element={PE([2,4,5,6,7], AnalysisByCountry)} />
+      <Route path="/analises-por-cliente" element={PE([2,4,5,6,7], AnalysisByCustomers)} />
+      <Route path="/analises-por-hora" element={PE([2,4,5,6,7], AnalysisByHour)} />
+      <Route path="/analises-por-produto" element={PE([2,4,5,6,7], AnalysisByProduct)} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

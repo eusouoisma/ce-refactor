@@ -5,6 +5,8 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
+import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 
 const newVariant = () => ({
   pricingType: 'person', priceAdult: '', priceHalf: '', priceNet: '', priceBrazilian: '',
@@ -16,6 +18,8 @@ export default function ProductUpdate() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const id = params.get('id');
+  const { userPermissions } = useStore();
+  const readOnly = isReadOnly(userPermissions);
   const [form, setForm] = useState({ productId: id, type: 'regular', category: 'atividade', productName: '', duration: '', variants: [] });
 
   useEffect(() => {
@@ -54,6 +58,7 @@ export default function ProductUpdate() {
   }
 
   async function handleSubmit() {
+    if (readOnly) return;
     const res = await apiFetch('/products/update', {
       method: 'POST',
       body: JSON.stringify(form),
@@ -133,7 +138,7 @@ export default function ProductUpdate() {
           ))}
           <Button startIcon={<AddIcon />} onClick={() => setForm(p => ({ ...p, variants: [...p.variants, newVariant()] }))}>Adicionar Variante</Button>
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            <Button variant="contained" onClick={handleSubmit}>Salvar</Button>
+            <Button variant="contained" onClick={handleSubmit} disabled={readOnly}>Salvar</Button>
             <Button variant="text" onClick={() => navigate(backPath)}>Cancelar</Button>
           </Box>
         </CardContent>

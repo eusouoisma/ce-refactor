@@ -9,6 +9,7 @@ import { NumericFormat } from 'react-number-format';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 import { COLORS } from '../../utils/colors';
 
 const defaultForm = {
@@ -39,7 +40,8 @@ function Section({ label, color = COLORS.primary, children }) {
 
 export default function FinancialTourInput() {
   const navigate = useNavigate();
-  const { userName } = useStore();
+  const { userName, userPermissions } = useStore();
+  const readOnly = isReadOnly(userPermissions);
   const [form, setForm] = useState({ ...defaultForm });
   const [products, setProducts]             = useState([]);
   const [statuses, setStatuses]             = useState([]);
@@ -79,6 +81,7 @@ export default function FinancialTourInput() {
   }
 
   async function handleSubmit(andNew = false) {
+    if (readOnly) return;
     const payload = { ...form, createdBy: userName, lastEditBy: userName };
     const res = await apiFetch('/tours/create-financial', {
       method: 'POST',
@@ -275,10 +278,10 @@ export default function FinancialTourInput() {
         px: 3.5, py: 2, display: 'flex', gap: 1.5, alignItems: 'center',
         bgcolor: '#fff',
       }}>
-        <Button variant="contained" onClick={() => handleSubmit(false)} sx={{ px: 3.5 }}>
+        <Button variant="contained" onClick={() => handleSubmit(false)} disabled={readOnly} sx={{ px: 3.5 }}>
           Salvar
         </Button>
-        <Button variant="outlined" onClick={() => handleSubmit(true)}>
+        <Button variant="outlined" onClick={() => handleSubmit(true)} disabled={readOnly}>
           Salvar e Criar Outro
         </Button>
         <Button variant="text" sx={{ color: COLORS.textSecondary }} onClick={() => navigate('/listar-tours-financeiro')}>

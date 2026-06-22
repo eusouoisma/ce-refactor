@@ -4,12 +4,14 @@ import { Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, 
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 
 export default function ComissionUpdate() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const id = params.get('id');
-  const { userName } = useStore();
+  const { userName, userPermissions } = useStore();
+  const readOnly = isReadOnly(userPermissions);
   const [form, setForm] = useState({ orderRef: '', comissionersName: '', comissionersContact: '', comissionCurrency: '', comissionPrice: '', comissionPaid: false });
   const [currencies, setCurrencies] = useState([]);
 
@@ -23,6 +25,7 @@ export default function ComissionUpdate() {
   function set(f, v) { setForm(p => ({ ...p, [f]: v })); }
 
   async function handleSubmit() {
+    if (readOnly) return;
     const res = await apiFetch(`/comissions/update?id=${id}`, {
       method: 'POST',
       body: JSON.stringify({ ...form, lastEditBy: userName }),
@@ -53,7 +56,7 @@ export default function ComissionUpdate() {
             <Grid item xs={12}><FormControlLabel control={<Checkbox checked={!!form.comissionPaid} onChange={e => set('comissionPaid', e.target.checked)} />} label="Pago" /></Grid>
           </Grid>
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            <Button variant="contained" onClick={handleSubmit}>Salvar</Button>
+            <Button variant="contained" onClick={handleSubmit} disabled={readOnly}>Salvar</Button>
             <Button variant="text" onClick={() => navigate('/listar-comissoes')}>Cancelar</Button>
           </Box>
         </CardContent>

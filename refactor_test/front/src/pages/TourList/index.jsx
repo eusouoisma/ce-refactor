@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Button,
   TextField, Chip, IconButton, Grid, Tooltip, Paper, CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
@@ -23,22 +24,26 @@ const PAGE_SIZE = 80;
 const MONTHS = getAllMonths();
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-const DATA_COLUMNS = [
+function buildDataColumns(onCommentClick) {
+  return [
   { key: 'status', label: 'Status', filterable: true,
     render: (val, row) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {row.comments ? (
-          <Tooltip arrow placement="top" title={
-            <Box sx={{ whiteSpace: 'pre-line', fontSize: '0.78rem', maxWidth: 320 }}>{row.comments}</Box>
-          }>
-            <Box sx={{
+          <Box
+            onClick={e => { e.stopPropagation(); onCommentClick(row); }}
+            sx={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 22, height: 22, borderRadius: '6px', bgcolor: '#fdab3d', color: '#fff',
-              cursor: 'help', flexShrink: 0, boxShadow: '0 1px 4px rgba(253,171,61,0.45)',
-            }}>
-              <ChatBubbleRoundedIcon sx={{ fontSize: 13 }} />
-            </Box>
-          </Tooltip>
+              width: 22, height: 22, borderRadius: '6px',
+              bgcolor: '#e53935', color: '#fff',
+              cursor: 'pointer', flexShrink: 0,
+              boxShadow: '0 1px 6px rgba(229,57,53,0.55)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+              '&:hover': { transform: 'scale(1.18)', boxShadow: '0 2px 10px rgba(229,57,53,0.7)' },
+            }}
+          >
+            <ChatBubbleRoundedIcon sx={{ fontSize: 13 }} />
+          </Box>
         ) : null}
         {val}
       </Box>
@@ -52,15 +57,15 @@ const DATA_COLUMNS = [
   { key: 'tourHour',            label: 'Horário',             filterable: true  },
   { key: 'activity',            label: 'Atividade',           filterable: true  },
   { key: 'adicional',           label: 'Adicional',           filterable: true, render: val => formatAdicional(val) },
-  { key: 'paxAdult',            label: 'Adulto',              filterable: false },
-  { key: 'paxNet',              label: 'NET',                 filterable: false },
-  { key: 'paxBrazilian',        label: 'Brasileiro',          filterable: false },
-  { key: 'paxHalf',             label: 'Meia',                filterable: false },
-  { key: 'paxFree',             label: 'Free',                filterable: false },
-  { key: '_paxTotal',           label: 'Total',               filterable: false,
+  { key: 'paxAdult',            label: 'Adulto',              filterable: true },
+  { key: 'paxNet',              label: 'NET',                 filterable: true },
+  { key: 'paxBrazilian',        label: 'Brasileiro',          filterable: true },
+  { key: 'paxHalf',             label: 'Meia',                filterable: true },
+  { key: 'paxFree',             label: 'Free',                filterable: true },
+  { key: '_paxTotal',           label: 'Total',               filterable: true,
     render: (_, row) => (parseInt(row.paxAdult)||0)+(parseInt(row.paxHalf)||0)+(parseInt(row.paxFree)||0)+(parseInt(row.paxNet)||0)+(parseInt(row.paxBrazilian)||0) || '',
     csvValue: row => (parseInt(row.paxAdult)||0)+(parseInt(row.paxHalf)||0)+(parseInt(row.paxFree)||0)+(parseInt(row.paxNet)||0)+(parseInt(row.paxBrazilian)||0) || '' },
-  { key: 'groups',              label: 'Nº Grupos',           filterable: false },
+  { key: 'groups',              label: 'Nº Grupos',           filterable: true },
   { key: 'language',            label: 'Idioma',              filterable: true  },
   { key: 'client',              label: 'Cliente',             filterable: true  },
   { key: 'orderRef',            label: 'Nº Reserva',          filterable: true  },
@@ -70,24 +75,37 @@ const DATA_COLUMNS = [
     render: (val, row) => row.type === 'regular' ? formatMoney(val) : '–' },
   { key: 'paymentMethod',       label: 'Pagamento',           filterable: true  },
   { key: 'paymentStatus',       label: 'Status de Pagamento', filterable: true  },
-  { key: 'clientName',          label: 'Nome Cliente',        filterable: false },
-  { key: 'clientContact',       label: 'Contato Cliente',     filterable: false },
+  { key: 'clientName',          label: 'Nome Cliente',        filterable: true  },
+  { key: 'clientContact',       label: 'Contato Cliente',     filterable: true  },
   { key: 'companionName',       label: 'Nome Guia',           filterable: true  },
-  { key: 'companionContact',    label: 'Contato Guia',        filterable: false },
+  { key: 'companionContact',    label: 'Contato Guia',        filterable: true  },
   { key: 'local',               label: 'Local',               filterable: true  },
   { key: 'platform',            label: 'Plataforma',          filterable: true  },
-  { key: 'emailSubject',        label: 'Nome Email',          filterable: false, noTruncate: true },
-  { key: 'commissioned',        label: 'Comissão',            filterable: false,
+  { key: 'emailSubject',        label: 'Nome Email',          filterable: true, noTruncate: true },
+  { key: 'commissioned',        label: 'Comissão',            filterable: true,
     render: val => val == 1 ? '✓' : '' },
   { key: 'comments',            label: 'Obs',                 filterable: false, noTruncate: true },
   { key: 'conversationHistory', label: 'Histórico',           filterable: false, noTruncate: true },
   { key: 'country',             label: 'País',                filterable: true  },
-  { key: 'dateOfRegistrationFormated', label: 'Data de Registro', filterable: false },
-  { key: 'createdBy',           label: 'Criado por',          filterable: false },
-  { key: 'lastEditBy',          label: 'Editado por',         filterable: false },
-];
+  { key: 'dateOfRegistrationFormated', label: 'Data de Registro', filterable: true  },
+  { key: 'createdBy',           label: 'Criado por',          filterable: true  },
+  { key: 'lastEditBy',          label: 'Editado por',         filterable: true  },
+  { key: 'recurrenceId',        label: 'Recorrência',         filterable: true,
+    render: val => val ? (
+      <Box sx={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        px: 0.8, py: 0.1, borderRadius: '4px', fontSize: '0.68rem', fontWeight: 700,
+        bgcolor: 'rgba(156,39,176,0.12)', color: '#6a0080', whiteSpace: 'nowrap',
+      }}>
+        Recorrente
+      </Box>
+    ) : null,
+    csvValue: row => row.recurrenceId ? 'Recorrente' : '',
+  },
+];}
 
-const FILTERABLE_KEYS = DATA_COLUMNS.filter(c => c.filterable).map(c => c.key);
+const STATIC_COLUMNS = buildDataColumns(() => {});
+const FILTERABLE_KEYS = STATIC_COLUMNS.filter(c => c.filterable).map(c => c.key);
 
 function buildFilterQS(filters) {
   return Object.entries(filters)
@@ -148,6 +166,7 @@ export default function TourList() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selected, setSelected] = useState([]);
   const [historyTourId, setHistoryTourId] = useState(null);
+  const [commentDialog, setCommentDialog] = useState({ open: false, row: null });
 
   const offsetRef = useRef(0);
   const hasMoreRef = useRef(true);
@@ -314,7 +333,11 @@ export default function TourList() {
       </Tooltip>
     ),
   };
-  const columns = [...(actionsCol ? [actionsCol] : []), ...DATA_COLUMNS, historyCol];
+  const dataColumns = useMemo(
+    () => buildDataColumns(row => setCommentDialog({ open: true, row })),
+    [],
+  );
+  const columns = [...(actionsCol ? [actionsCol] : []), ...dataColumns, historyCol];
 
   const activeFilterCount = Object.values(filters).filter(v => v !== null).length;
 
@@ -420,6 +443,33 @@ export default function TourList() {
           </Typography>
         )}
       </Box>
+
+      <Dialog
+        open={commentDialog.open}
+        onClose={() => setCommentDialog({ open: false, row: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700, pb: 1 }}>
+          {commentDialog.row && (() => {
+            const r = commentDialog.row;
+            const parts = ['Observações do tour'];
+            if (r.activity) parts.push(r.activity);
+            if (r.formatedTourDate) parts.push(`dia ${r.formatedTourDate}`);
+            if (r.tourHour) parts.push(`hora ${r.tourHour}`);
+            if (r.orderRef) parts.push(`reserva ${r.orderRef}`);
+            return parts.join(' ');
+          })()}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ whiteSpace: 'pre-line', fontSize: '0.92rem' }}>
+            {commentDialog.row?.comments}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCommentDialog({ open: false, row: null })}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
 
       <TourHistoryDialog
         open={!!historyTourId}

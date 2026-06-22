@@ -16,6 +16,11 @@ router.post('/login', wrap(async (req, res) => {
   res.json(await userService.login(username, password));
 }));
 
+router.post('/verify-2fa', wrap(async (req, res) => {
+  const { userId, code } = req.body;
+  res.json(await userService.verify2fa(userId, code));
+}));
+
 // Protected — authMiddleware runs first (token accepted via ?token= or Authorization header)
 router.get('/getUser', (req, res) => {
   const { userId, username, name, permissions } = req.user;
@@ -23,8 +28,8 @@ router.get('/getUser', (req, res) => {
 });
 
 router.post('/create', adminOnly, wrap(async (req, res) => {
-  const { username, name, permissions, password } = req.body;
-  res.json(await userService.create({ username, name, permissions, password }));
+  const { username, name, permissions, password, email } = req.body;
+  res.json(await userService.create({ username, name, permissions, password, email }));
 }));
 
 router.post('/update', wrap(async (req, res) => {
@@ -38,6 +43,16 @@ router.get('/delete', adminOnly, wrap(async (req, res) => {
 
 router.get('/list-all', adminOnly, wrap(async (req, res) => {
   res.json(await userService.listAll());
+}));
+
+router.get('/shortcuts', wrap(async (req, res) => {
+  const shortcuts = await userService.getShortcuts(req.user.userId);
+  res.json({ shortcuts });
+}));
+
+router.post('/shortcuts', wrap(async (req, res) => {
+  const result = await userService.updateShortcuts(req.user.userId, req.body?.shortcuts);
+  res.json(result);
 }));
 
 router.get('/logout-all', (req, res) => {

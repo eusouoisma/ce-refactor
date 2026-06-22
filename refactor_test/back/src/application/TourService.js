@@ -1,6 +1,7 @@
 const { Tour } = require('../domain/entities/Tour');
 const { getTodaySP, formatDate } = require('../shared/db');
 const { AppError } = require('../shared/AppError');
+const { randomUUID } = require('crypto');
 
 class TourService {
   constructor({ pool, tourRepo, settingsRepo, dayOrderRepo, comissionRepo, changeRequestRepo, customerRepo, tourEditHistoryService }) {
@@ -21,6 +22,16 @@ class TourService {
 
   async create(data) {
     const t = Tour.coerce(data);
+
+    if (!t.tourDate) return { error: true, message: 'A data do tour é obrigatória.' };
+
+    // B2C: override client with platform, clear contact fields before insert
+    if (data.clientType === 'b2c') {
+      t.client = t.platform || '';
+      t.clientName = '';
+      t.clientContact = '';
+    }
+
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -34,22 +45,10 @@ class TourService {
       const dayOrderId = await this.dayOrderRepo.getOrCreate(t.tourDate, client);
       const tourId = await this.tourRepo.insert(t, currentYear, dayOrderId, client, data.planneId || null);
 
+      await this.tourEditHistoryService.recordCreation(tourId, t.createdBy, 'office', client);
+
       if (t.commissioned === '1') {
         await this.comissionRepo.insert(tourId, t.orderRef, { ...data, comissionPaid: t.comissionPaid === '1' }, currentYear, client);
-      }
-
-      // Auto-create customer/contact if not exists
-      const existingCustomer = await this.customerRepo.findByName(t.client, client);
-      let customerId;
-      if (!existingCustomer) {
-        customerId = await this.customerRepo.insert(t.client, data.newCustomerType || '', t.createdBy, t.lastEditBy, client);
-        await this.customerRepo.insertContact(customerId, { name: t.clientName, contact: '', office: '', email: t.clientContact, createdBy: t.createdBy, lastEditBy: t.lastEditBy }, client);
-      } else {
-        customerId = existingCustomer.id;
-        const existing = await this.customerRepo.findContactByCustomerAndName(t.client, t.clientName, client);
-        if (!existing) {
-          await this.customerRepo.insertContact(customerId, { name: t.clientName, contact: '', office: '', email: t.clientContact, createdBy: t.createdBy, lastEditBy: t.lastEditBy }, client);
-        }
       }
 
       await client.query('COMMIT');
@@ -62,8 +61,76 @@ class TourService {
     }
   }
 
+  _generateRecurrenceDates(baseDateStr, recurrence) {
+    const { interval, unit, days, endDate } = recurrence;
+    const base = new Date(baseDateStr + 'T12:00:00Z');
+    const end  = new Date(endDate      + 'T12:00:00Z');
+    const results = [];
+
+    if (unit === 'day') {
+      let cur = new Date(base);
+      cur.setUTCDate(cur.getUTCDate() + Number(interval));
+      while (cur <= end) {
+        results.push(cur.toISOString().split('T')[0]);
+        cur.setUTCDate(cur.getUTCDate() + Number(interval));
+      }
+    } else {
+      // week — iterate each week (stepping interval weeks), emit selected days
+      const baseDay = base.getUTCDay();
+      const sunday  = new Date(base);
+      sunday.setUTCDate(sunday.getUTCDate() - baseDay);
+
+      for (let w = 0; w < 500; w++) {
+        const ws = new Date(sunday);
+        ws.setUTCDate(ws.getUTCDate() + w * 7 * Number(interval));
+        if (ws > end) break;
+
+        for (const day of [...days].sort((a, b) => a - b)) {
+          const d = new Date(ws);
+          d.setUTCDate(d.getUTCDate() + day);
+          if (d > base && d <= end)
+            results.push(d.toISOString().split('T')[0]);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  async createRecurrence(data, recurrence) {
+    const dates = this._generateRecurrenceDates(data.tourDate, recurrence);
+    if (dates.length === 0)
+      return { error: true, message: 'Nenhuma data gerada com os parâmetros informados.' };
+
+    const recurrenceId  = randomUUID();
+    const currentYear   = await this.settingsRepo.getCurrentYear();
+    const client        = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const created = [];
+      for (const date of dates) {
+        const t       = Tour.coerce({ ...data, tourDate: date });
+        t.orderRef    = await this.settingsRepo.generateOrderRef(client);
+        const doId    = await this.dayOrderRepo.getOrCreate(date, client);
+        const tourId  = await this.tourRepo.insert(t, currentYear, doId, client, null, recurrenceId);
+        await this.tourEditHistoryService.recordCreation(tourId, t.createdBy, 'office', client);
+        created.push(tourId);
+      }
+      await client.query('COMMIT');
+      return { error: false, count: created.length, recurrenceId };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   async update(id, data) {
     const t = Tour.coerce(data);
+
+    if (!t.tourDate) return { error: true, message: 'A data do tour é obrigatória.' };
+
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -210,6 +277,8 @@ class TourService {
       const dayOrderId = await this.dayOrderRepo.getOrCreate(t.tourDate, client);
       const tourId = await this.tourRepo.insertFinancial(t, currentYear, dayOrderId, client);
 
+      await this.tourEditHistoryService.recordCreation(tourId, t.createdBy, 'office', client);
+
       if (t.commissioned === '1') {
         await this.comissionRepo.insert(tourId, t.orderRef, { ...data, comissionPaid: t.comissionPaid === '1' }, currentYear, client);
       }
@@ -291,6 +360,21 @@ class TourService {
 
   async getEditHistory(tourId, type) {
     return this.tourEditHistoryService.getHistory(tourId, type || null);
+  }
+
+  async setCobrarCliente(id, lastEditBy) {
+    const current = await this.tourRepo.findAllForDiff(id);
+    if (!current) return { error: true, message: 'Tour não encontrado' };
+    if ((current.company || '').toLowerCase().includes('cobrar cliente')) return { error: false };
+    await this.tourRepo.setField(id, 'company', 'Cobrar Cliente');
+    await this.tourEditHistoryService.recordChanges(
+      id,
+      { company: current.company || '' },
+      { company: 'Cobrar Cliente' },
+      lastEditBy || '',
+      'financial'
+    );
+    return { error: false };
   }
 
   async markAsLateCheck(id, lastEditBy) {

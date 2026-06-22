@@ -14,6 +14,7 @@ class Tour {
       status:              d.status              || '',
       language:            d.language            || '',
       client:              d.client              || '',
+      clientType:          d.clientType          || 'b2b',
       paxAdult:            d.paxAdult            || 0,
       paxHalf:             d.paxHalf             || 0,
       paxFree:             d.paxFree             || 0,

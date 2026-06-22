@@ -7,21 +7,25 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import Swal from 'sweetalert2';
 import { apiFetch } from '../../utils/api';
+import { useStore } from '../../components/Store';
+import { isReadOnly } from '../../utils/permissions';
 import DataTable from '../../components/DataTable';
 import { COLORS } from '../../utils/colors';
 
-const makeActions = (navigate, deleteProduct) => (row) => (
+const makeActions = (navigate, deleteProduct, canEdit) => (row) => (
   <Box sx={{ display: 'flex', gap: 0.5 }}>
     <Tooltip title="Editar" arrow>
       <IconButton size="small" onClick={e => { e.stopPropagation(); navigate(`/editar-produto?id=${row.id}`); }}>
         <EditRoundedIcon fontSize="small" sx={{ color: COLORS.primary }} />
       </IconButton>
     </Tooltip>
-    <Tooltip title="Excluir" arrow>
-      <IconButton size="small" onClick={e => { e.stopPropagation(); deleteProduct(row.id); }}>
-        <DeleteRoundedIcon fontSize="small" color="error" />
-      </IconButton>
-    </Tooltip>
+    {canEdit && (
+      <Tooltip title="Excluir" arrow>
+        <IconButton size="small" onClick={e => { e.stopPropagation(); deleteProduct(row.id); }}>
+          <DeleteRoundedIcon fontSize="small" color="error" />
+        </IconButton>
+      </Tooltip>
+    )}
   </Box>
 );
 
@@ -39,6 +43,8 @@ const COLUMNS_ADICIONAIS = (rowActions) => [
 export default function ProductList() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userPermissions } = useStore();
+  const canEdit = !isReadOnly(userPermissions);
   const isAdicionais = location.pathname === '/listar-adicionais';
 
   const [products, setProducts] = useState([]);
@@ -66,13 +72,14 @@ export default function ProductList() {
   useEffect(() => { load(); }, [load]);
 
   async function deleteProduct(id) {
+    if (!canEdit) return;
     const result = await Swal.fire({ title: `Excluir ${isAdicionais ? 'adicional' : 'produto'}?`, showCancelButton: true, confirmButtonText: 'Sim', cancelButtonText: 'Não' });
     if (!result.isConfirmed) return;
     await apiFetch(`/products/delete?id=${id}`);
     load();
   }
 
-  const rowActions = makeActions(navigate, deleteProduct);
+  const rowActions = makeActions(navigate, deleteProduct, canEdit);
   const columns = isAdicionais ? COLUMNS_ADICIONAIS(rowActions) : COLUMNS_PRODUTOS(rowActions);
   const title = isAdicionais ? 'Adicionais' : 'Produtos';
   const emptyMsg = isAdicionais ? 'Nenhum adicional encontrado.' : 'Nenhum produto encontrado.';

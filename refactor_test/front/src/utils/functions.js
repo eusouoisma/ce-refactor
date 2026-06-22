@@ -55,7 +55,12 @@ export function formatAdicional(val) {
   if (!val || val === '[]') return '';
   try {
     const arr = JSON.parse(val);
-    if (Array.isArray(arr)) return arr.filter(Boolean).join(', ');
+    if (Array.isArray(arr)) {
+      return arr
+        .map(item => (item && typeof item === 'object' ? item.name : item))
+        .filter(Boolean)
+        .join(', ');
+    }
   } catch {}
   return val;
 }

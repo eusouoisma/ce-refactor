@@ -8,6 +8,11 @@ router.post('/create', wrap(async (req, res) => {
   res.json(await tourService.create(req.body));
 }));
 
+router.post('/create-recurrence', wrap(async (req, res) => {
+  const { tourData, recurrence } = req.body;
+  res.json(await tourService.createRecurrence(tourData, recurrence));
+}));
+
 router.post('/update', wrap(async (req, res) => {
   res.json(await tourService.update(req.query.id, req.body));
 }));
@@ -106,6 +111,10 @@ router.post('/mark-as-late-check', wrap(async (req, res) => {
 router.get('/regular-list', wrap(async (req, res) => {
   const { date, hour } = req.query;
   res.json(await tourService.regularList(date, hour));
+}));
+
+router.post('/set-cobrar-cliente', wrap(async (req, res) => {
+  res.json(await tourService.setCobrarCliente(req.query.id, req.body.lastEditBy));
 }));
 
 router.get('/edit-history', wrap(async (req, res) => {
