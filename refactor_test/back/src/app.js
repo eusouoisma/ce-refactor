@@ -11,6 +11,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+const { runMigrations } = require('./shared/db');
 const { errorHandler } = require('./http/middleware/errorHandler');
 const { authMiddleware } = require('./http/middleware/auth');
 
@@ -73,8 +74,8 @@ app.use('/planne',         planneRouter);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`CE Backend running on port ${PORT}`);
-});
+runMigrations()
+  .then(() => app.listen(PORT, () => console.log(`CE Backend running on port ${PORT}`)))
+  .catch(err => { console.error(err); process.exit(1); });
 
 module.exports = app;
