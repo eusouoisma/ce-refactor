@@ -660,8 +660,9 @@ class TourRepository {
 
   async findClientsByDateAndHour(date, hour) {
     const res = await this.pool.query(
-      `SELECT client, "companionName", "companionContact" FROM tour
+      `SELECT client, "clientContact" FROM tour
        WHERE "tourDate"::date = $1::date AND "tourHour" = $2 AND (canceled = 0 OR canceled IS NULL)
+         AND (client IS NOT NULL AND client <> '')
        ORDER BY client ASC`,
       [date, hour]
     );

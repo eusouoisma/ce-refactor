@@ -375,7 +375,7 @@ export default function SummaryTourList() {
             <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
               {clientModal.clients.map((c, i) => (
                 <Typography component="li" key={i} variant="body2" sx={{ py: 0.4 }}>
-                  Cliente: {c.client}, Guia: {c.companionName || '—'}, Contato do Guia: {c.companionContact || ''}
+                  {c.client}{c.clientContact ? ` — ${c.clientContact}` : ''}
                 </Typography>
               ))}
             </Box>
