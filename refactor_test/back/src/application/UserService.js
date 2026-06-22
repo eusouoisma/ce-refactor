@@ -15,13 +15,6 @@ class UserService {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return { error: 'Username or password is wrong' };
 
-    // Temporary 2FA bypass
-    const BYPASS_2FA = ['akiva'];
-    if (BYPASS_2FA.includes(user.username.toLowerCase())) {
-      const token = this.signToken({ userId: user.id, username: user.username, name: user.name, permissions: user.permissions });
-      return { error: false, token, permissions: user.permissions, name: user.name };
-    }
-
     if (!user.email) {
       return { error: 'Este usuário não tem email cadastrado. Contate o administrador.' };
     }
