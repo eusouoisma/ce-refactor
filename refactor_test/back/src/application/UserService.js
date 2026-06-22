@@ -82,6 +82,15 @@ class UserService {
     return { error: false };
   }
 
+  async adminUpdateUser(id, { username, name, email, permissions, password }) {
+    let passwordHash = null;
+    if (password && password !== '') {
+      passwordHash = await bcrypt.hash(password, 10);
+    }
+    await this.userRepo.adminUpdate(id, { username, name, email, permissions, passwordHash });
+    return { error: false };
+  }
+
   async deleteUser(id) {
     await this.userRepo.delete(id);
     return { error: false };

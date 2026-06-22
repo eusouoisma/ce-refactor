@@ -83,6 +83,20 @@ class UserRepository {
     );
   }
 
+  async adminUpdate(id, { username, name, email, permissions, passwordHash }) {
+    if (passwordHash) {
+      await this.pool.query(
+        `UPDATE users SET username = $1, name = $2, email = $3, permissions = $4, password = $5 WHERE id = $6`,
+        [username, name, email, permissions, passwordHash, id]
+      );
+    } else {
+      await this.pool.query(
+        `UPDATE users SET username = $1, name = $2, email = $3, permissions = $4 WHERE id = $5`,
+        [username, name, email, permissions, id]
+      );
+    }
+  }
+
   async delete(id) {
     await this.pool.query(`DELETE FROM users WHERE id = $1`, [id]);
   }

@@ -37,6 +37,11 @@ router.post('/update', wrap(async (req, res) => {
   res.json(await userService.updateSelf(req.user.userId, { username, name, password }));
 }));
 
+router.post('/admin-update', adminOnly, wrap(async (req, res) => {
+  const { id, username, name, email, permissions, password } = req.body;
+  res.json(await userService.adminUpdateUser(id, { username, name, email, permissions, password }));
+}));
+
 router.get('/delete', adminOnly, wrap(async (req, res) => {
   res.json(await userService.deleteUser(req.query.id));
 }));
