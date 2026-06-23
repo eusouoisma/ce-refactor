@@ -17,7 +17,7 @@ const DRAWER_WIDTH = 220;
 const COLLAPSED_WIDTH = 56;
 
 const isListingPath = (path) =>
-  path.includes('listar') || path === '/usuarios' || path === '/tours-cancelados' || path === '/importar-planne';
+  path.includes('listar') || path === '/usuarios' || path === '/tours-cancelados' || path === '/importar-planne' || path === '/planne-webhook';
 
 export default function Sidebar() {
   const navigate  = useNavigate();

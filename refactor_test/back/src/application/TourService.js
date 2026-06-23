@@ -43,7 +43,7 @@ class TourService {
         return { error: true, message: `Já existe um tour com o número de reserva "${t.orderRef}".` };
       }
       const dayOrderId = await this.dayOrderRepo.getOrCreate(t.tourDate, client);
-      const tourId = await this.tourRepo.insert(t, currentYear, dayOrderId, client, data.planneId || null);
+      const tourId = await this.tourRepo.insert(t, currentYear, dayOrderId, client, data.planneId || null, null, data.planneSaleDate || null);
 
       await this.tourEditHistoryService.recordCreation(tourId, t.createdBy, 'office', client);
 

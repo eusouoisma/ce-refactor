@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Button, Chip, Tooltip, IconButton,
+  Box, Typography, Button, Tooltip, IconButton,
 } from '@mui/material';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
@@ -10,12 +10,6 @@ import { useStore } from '../../components/Store';
 import { isReadOnly } from '../../utils/permissions';
 import DataTable from '../../components/DataTable';
 import { COLORS } from '../../utils/colors';
-
-const STATE_CHIP = {
-  Pago:     { color: 'success' },
-  Pendente: { color: 'warning' },
-  Criado:   { color: 'default' },
-};
 
 const STATUS_STYLE = {
   importing: { bgcolor: '#fdab3d', label: 'Importando...',    spinner: true  },
@@ -71,21 +65,18 @@ const COLUMNS = [
   })),
   { key: 'totalValue', label: 'Valor', render: (v, row) => fmtMoney(v, row.currency) },
   {
-    key: 'paymentStatus',
-    label: 'Status',
-    render: (v) => (
-      <Chip
-        label={v}
-        size="small"
-        color={STATE_CHIP[v]?.color || 'default'}
-        sx={{ fontSize: '0.58rem', height: 18 }}
-      />
-    ),
-  },
-  {
     key: 'planneCode',
     label: 'Reserva',
     getCellSx: () => ({ fontFamily: 'monospace' }),
+  },
+  {
+    key: 'planneSaleDate',
+    label: 'Data da Venda',
+    render: (v) => {
+      if (!v) return <em style={{ color: '#bbb' }}>—</em>;
+      const d = new Date(v);
+      return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+    },
   },
 ];
 
@@ -127,7 +118,7 @@ export default function PlanneTourImport() {
   );
 
   function handleImport(tour) {
-    const { planneId, planneCode, planneState, createdAt, ...tourFields } = tour;
+    const { planneId, planneCode, planneState, ...tourFields } = tour;
     navigate('/cadastrar-tour', { state: { planneId, planneData: tourFields } });
   }
 
@@ -138,7 +129,7 @@ export default function PlanneTourImport() {
     setBatchImporting(true);
 
     for (const tour of toImport) {
-      const { planneId, planneCode, planneState, createdAt, ...tourFields } = tour;
+      const { planneId, planneCode, planneState, planneSaleDate, ...tourFields } = tour;
       setRowStatus(prev => ({ ...prev, [planneId]: 'importing' }));
 
       try {
@@ -153,6 +144,7 @@ export default function PlanneTourImport() {
           createdBy: userName,
           lastEditBy: userName,
           planneId,
+          planneSaleDate: planneSaleDate || null,
         };
         const res = await apiFetch('/tours/create', { method: 'POST', body: JSON.stringify(payload) });
         const data = await res.json();

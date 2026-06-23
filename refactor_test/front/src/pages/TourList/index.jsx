@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Button,
@@ -8,7 +8,6 @@ import {
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import FilterAltOffRoundedIcon from '@mui/icons-material/FilterAltOffRounded';
-import ChatBubbleRoundedIcon from '@mui/icons-material/ChatBubbleRounded';
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import { DownloadTableExcel } from 'react-export-table-to-excel';
@@ -17,6 +16,7 @@ import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
 import { formatMoney, getAllMonths, formatAdicional } from '../../utils/functions';
 import DataTable from '../../components/DataTable';
+import CommentBubbleButton from '../../components/CommentBubbleButton';
 import TourHistoryDialog from '../../components/TourHistoryDialog';
 import { COLORS } from '../../utils/colors';
 
@@ -24,32 +24,8 @@ const PAGE_SIZE = 80;
 const MONTHS = getAllMonths();
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-function buildDataColumns(onCommentClick) {
-  return [
-  { key: 'status', label: 'Status', filterable: true,
-    render: (val, row) => (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {row.comments ? (
-          <Box
-            onClick={e => { e.stopPropagation(); onCommentClick(row); }}
-            sx={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 22, height: 22, borderRadius: '6px',
-              bgcolor: '#e53935', color: '#fff',
-              cursor: 'pointer', flexShrink: 0,
-              boxShadow: '0 1px 6px rgba(229,57,53,0.55)',
-              transition: 'transform 0.15s, box-shadow 0.15s',
-              '&:hover': { transform: 'scale(1.18)', boxShadow: '0 2px 10px rgba(229,57,53,0.7)' },
-            }}
-          >
-            <ChatBubbleRoundedIcon sx={{ fontSize: 13 }} />
-          </Box>
-        ) : null}
-        {val}
-      </Box>
-    ),
-    csvValue: row => row.status,
-  },
+const DATA_COLUMNS = [
+  { key: 'status', label: 'Status', filterable: true },
   { key: 'formatedTourDate',    label: 'Data',                filterable: true  },
   { key: '_weekDay',            label: 'Dia',                 filterable: false,
     render: (_, row) => row.tourDate ? DAYS[new Date(String(row.tourDate).split('T')[0] + 'T00:00:00').getUTCDay()] : '',
@@ -102,10 +78,25 @@ function buildDataColumns(onCommentClick) {
     ) : null,
     csvValue: row => row.recurrenceId ? 'Recorrente' : '',
   },
-];}
+  { key: 'planneId',           label: 'Planne',              filterable: false,
+    render: val => val ? (
+      <Box sx={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        px: 0.8, py: 0.1, borderRadius: '4px', fontSize: '0.68rem', fontWeight: 700,
+        bgcolor: 'rgba(255, 100, 46, 0.12)', color: '#ff642e', whiteSpace: 'nowrap',
+      }}>
+        Planne
+      </Box>
+    ) : null,
+    csvValue: row => row.planneId ? 'Planne' : '',
+  },
+  { key: 'formatedPlanneSaleDate', label: 'Data Venda Planne', filterable: false,
+    render: val => val || '',
+    csvValue: row => row.formatedPlanneSaleDate || '',
+  },
+];
 
-const STATIC_COLUMNS = buildDataColumns(() => {});
-const FILTERABLE_KEYS = STATIC_COLUMNS.filter(c => c.filterable).map(c => c.key);
+const FILTERABLE_KEYS = DATA_COLUMNS.filter(c => c.filterable).map(c => c.key);
 
 function buildFilterQS(filters) {
   return Object.entries(filters)
@@ -333,11 +324,15 @@ export default function TourList() {
       </Tooltip>
     ),
   };
-  const dataColumns = useMemo(
-    () => buildDataColumns(row => setCommentDialog({ open: true, row })),
-    [],
-  );
-  const columns = [...(actionsCol ? [actionsCol] : []), ...dataColumns, historyCol];
+  const columns = [...(actionsCol ? [actionsCol] : []), ...DATA_COLUMNS, historyCol];
+
+  const renderRowLeading = useCallback(row => (
+    row.comments ? (
+      <CommentBubbleButton
+        onClick={e => { e.stopPropagation(); setCommentDialog({ open: true, row }); }}
+      />
+    ) : null
+  ), []);
 
   const activeFilterCount = Object.values(filters).filter(v => v !== null).length;
 
@@ -422,6 +417,7 @@ export default function TourList() {
         onSelectChange={setSelected}
         altColumns
         actions={rowActions}
+        renderRowLeading={renderRowLeading}
         emptyMessage="Nenhum tour encontrado para o período selecionado."
         tableRef={tableRef}
         onBottomReached={loadMore}

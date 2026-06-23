@@ -241,7 +241,7 @@ class TourRepository {
     return clauses;
   }
 
-  async insert(t, year, dayOrderId, tx, planneId = null, recurrenceId = null) {
+  async insert(t, year, dayOrderId, tx, planneId = null, recurrenceId = null, planneSaleDate = null) {
     const db = this._db(tx);
     const res = await db.query(
       `INSERT INTO tour (type, "orderRef", platform, activity, adicional, duration, "tourDate", "tourHour",
@@ -249,9 +249,9 @@ class TourRepository {
        currency, "paymentMethod", "totalValue", "numberOfGroups", "ceGuide", "clientName", "clientContact",
        country, "emailSubject", "companionName", "companionContact", commissioned, comments,
        "conversationHistory", "paymentStatus", "financialComments", year, "dateOfRegistration",
-       "createdBy", "lastEditBy", origin, "dayOrderId", "isHighSeason", "planneId", "recurrenceId")
+       "createdBy", "lastEditBy", origin, "dayOrderId", "isHighSeason", "planneId", "recurrenceId", "planneSaleDate")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,
-               $25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42)
+               $25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43)
        RETURNING id`,
       [
         t.type, t.orderRef, t.platform, t.activity, t.adicional, t.duration,
@@ -262,7 +262,7 @@ class TourRepository {
         t.companionName, t.companionContact, t.commissioned, t.comments,
         t.conversationHistory, t.paymentStatus, '', year, t.dateOfRegistration,
         t.createdBy, t.lastEditBy, 'office', dayOrderId, t.isHighSeason, planneId || null,
-        recurrenceId || null,
+        recurrenceId || null, planneSaleDate || null,
       ]
     );
     return res.rows[0].id;
@@ -382,6 +382,7 @@ class TourRepository {
       formatedTourDate:           formatDate(r.tourDate),
       dateOfRegistrationFormated: formatDate(r.dateOfRegistration),
       formatedPaymentDate:        formatDate(r.paymentDate),
+      formatedPlanneSaleDate:     r.planneSaleDate ? formatDate(r.planneSaleDate) : '',
     }));
   }
 
@@ -660,10 +661,12 @@ class TourRepository {
 
   async findClientsByDateAndHour(date, hour) {
     const res = await this.pool.query(
-      `SELECT client, "clientContact" FROM tour
-       WHERE "tourDate"::date = $1::date AND "tourHour" = $2 AND (canceled = 0 OR canceled IS NULL)
+      `SELECT client, "clientName", "clientContact" FROM tour
+       WHERE "tourDate"::date = $1::date AND "tourHour" = $2
+         AND (canceled = 0 OR canceled IS NULL)
+         AND status <> 'Cancelado'
          AND (client IS NOT NULL AND client <> '')
-       ORDER BY client ASC`,
+       ORDER BY client ASC, "clientName" ASC`,
       [date, hour]
     );
     return res.rows;

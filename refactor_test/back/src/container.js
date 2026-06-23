@@ -49,11 +49,11 @@ const planneSyncRepo       = new PlanneSyncRepository(pool);
 
 // Instantiate services
 const tourEditHistoryService = new TourEditHistoryService({ tourEditHistoryRepo });
-const planneSyncService      = new PlanneSyncService({ planneSyncRepo });
 const tourService = new TourService({
   pool, tourRepo, settingsRepo, dayOrderRepo, comissionRepo, changeRequestRepo, customerRepo,
   tourEditHistoryService,
 });
+const planneSyncService = new PlanneSyncService({ planneSyncRepo, tourService });
 const userService           = new UserService({ userRepo, signToken });
 const customerService       = new CustomerService({ pool, customerRepo });
 const comissionService      = new ComissionService({ comissionRepo });

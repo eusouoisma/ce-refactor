@@ -1,4 +1,5 @@
 const SKIP_STATES = new Set(['canceled', 'expired', 'payment_voided', 'payment_chargeback', 'pending', 'created']);
+const CANCEL_STATES = new Set(['canceled', 'expired', 'payment_voided', 'payment_chargeback']);
 
 const LANGUAGE_MAP = {
   es: 'Espanhol', en: 'Inglês', pt: 'Português', fr: 'Francês',
@@ -24,19 +25,19 @@ const STATUS_MAP = {
 };
 
 class PlanneSyncService {
-  constructor({ planneSyncRepo }) {
-    this.repo   = planneSyncRepo;
-    this.BASE   = 'https://seller-api.planne.com.br/1';
-    this.APP_ID = process.env.PLANNE_APP_ID    || '2902';
-    this.HEADERS = {
+  constructor({ planneSyncRepo, tourService }) {
+    this.repo        = planneSyncRepo;
+    this.tourService = tourService;
+    this.BASE        = 'https://seller-api.planne.com.br/1';
+    this.APP_ID      = process.env.PLANNE_APP_ID    || '2902';
+    this.HEADERS     = {
       'X-Client-Id':     process.env.PLANNE_CLIENT_ID     || '',
       'X-Client-Secret': process.env.PLANNE_CLIENT_SECRET || '',
     };
-    // In-process cache — built once per server lifecycle
-    this._typeNameMap   = null; // typeId  → tariff type name
-    this._tariffTypeMap = null; // tariffId → typeId
-    this._productNameMap = null; // productId → product name
-    this._cacheBuilding = null;
+    this._typeNameMap    = null;
+    this._tariffTypeMap  = null;
+    this._productNameMap = null;
+    this._cacheBuilding  = null;
   }
 
   // ── HTTP ─────────────────────────────────────────────────────────────────
@@ -71,7 +72,6 @@ class PlanneSyncService {
 
   async _ensureCache() {
     if (this._typeNameMap) return;
-    // Prevent concurrent builds
     if (!this._cacheBuilding) {
       this._cacheBuilding = this._buildCache().finally(() => { this._cacheBuilding = null; });
     }
@@ -79,22 +79,18 @@ class PlanneSyncService {
   }
 
   async _buildCache() {
-    // 1. Tariff types: typeId → name
     const types = await this._get(`/apps/${this.APP_ID}/tariffTypes`);
     this._typeNameMap = {};
     for (const t of this._items(types)) {
       this._typeNameMap[String(t.id)] = t.name || '';
     }
 
-    // 2. Products: productId → name
     const products = await this._fetchAllPages(`/apps/${this.APP_ID}/products`);
     this._productNameMap = {};
     for (const p of products) {
       this._productNameMap[String(p.id)] = p.internalName || p.name || '';
     }
 
-    // 3. For each product, fetch all tariff groups, then all tariffs
-    //    tariffId → typeId
     this._tariffTypeMap = {};
     await Promise.all(
       products.map(async (product) => {
@@ -129,7 +125,18 @@ class PlanneSyncService {
     } catch { return []; }
   }
 
-  // ── Public ────────────────────────────────────────────────────────────────
+  async _fetchSaleWithDetails(saleId) {
+    try {
+      const [sale, detailedItems, reservations] = await Promise.all([
+        this._get(`/sales/${saleId}?include=customer`),
+        this._fetchDetailedItems(saleId),
+        this._fetchReservations(saleId),
+      ]);
+      return { sale, detailedItems, reservations };
+    } catch { return null; }
+  }
+
+  // ── Public: manual import ─────────────────────────────────────────────────
 
   async getAvailableTours() {
     const [importedIds] = await Promise.all([
@@ -145,7 +152,6 @@ class PlanneSyncService {
       !importedIds.has(s.id) && !SKIP_STATES.has(s.currentState)
     );
 
-    // Fetch detailedItems + reservations in parallel, batched to avoid rate limits
     const BATCH = 10;
     const detailedMap = {}, reservMap = {};
     for (let i = 0; i < pending.length; i += BATCH) {
@@ -163,6 +169,83 @@ class PlanneSyncService {
     );
   }
 
+  // ── Public: webhook (queues for manual review) ───────────────────────────
+
+  async processWebhookEvent(event) {
+    const { eventType, metadata } = event;
+    const saleId = String(metadata.saleId);
+
+    if (eventType === 'SALE_STATE_CHANGE') {
+      const { stateTo } = metadata;
+      if (!CANCEL_STATES.has(stateTo) && stateTo !== 'payment_complete') return;
+      const existing = await this.repo.findTourByPlanneId(saleId);
+      if (!existing) return;
+      await this.repo.queueEvent('state_change', saleId, { planneCode: null, stateTo, mappedData: null });
+      return;
+    }
+
+    await this._ensureCache();
+    const fetched = await this._fetchSaleWithDetails(saleId);
+    if (!fetched) return;
+    if (SKIP_STATES.has(fetched.sale.currentState)) return;
+
+    const mapped = this._map(fetched.sale, fetched.detailedItems, fetched.reservations);
+    const existing = await this.repo.findTourByPlanneId(saleId);
+    const action = existing ? 'update' : 'create';
+
+    await this.repo.queueEvent(action, saleId, { planneCode: mapped.planneCode, stateTo: null, mappedData: mapped });
+  }
+
+  async getPendingQueue() {
+    return this.repo.getPendingQueue();
+  }
+
+  async applyQueueItem(id) {
+    const item = await this.repo.getQueueItemById(id);
+    if (!item) throw new Error('Item não encontrado ou já processado');
+
+    if (item.action === 'create') {
+      const result = await this.tourService.create({ ...item.mappedData, planneId: item.saleId, createdBy: 'Planne (webhook)' });
+      if (result.error) throw new Error(result.message);
+    } else if (item.action === 'update') {
+      await this.repo.updateFromPlanne(item.saleId, item.mappedData);
+    } else if (item.action === 'state_change') {
+      if (CANCEL_STATES.has(item.stateTo)) {
+        await this.repo.cancelTourByPlanneId(item.saleId);
+      } else if (item.stateTo === 'payment_complete') {
+        await this.repo.setPaymentStatusByPlanneId(item.saleId, STATUS_MAP.payment_complete);
+      }
+    }
+
+    await this.repo.markQueueItem(id, 'applied');
+  }
+
+  async dismissQueueItem(id) {
+    await this.repo.markQueueItem(id, 'dismissed');
+  }
+
+  // ── Webhook registration ──────────────────────────────────────────────────
+
+  async registerWebhook(callbackUrl) {
+    const secret = process.env.PLANNE_WEBHOOK_SECRET;
+    const body = {
+      url: callbackUrl,
+      eventTypes: ['sale.create', 'sale.update', 'SALE_STATE_CHANGE'],
+      enabled: true,
+      ...(secret ? { headers: { 'X-Webhook-Secret': secret } } : {}),
+    };
+    const res = await fetch(`${this.BASE}/apps/${this.APP_ID}/webhooks`, {
+      method: 'POST',
+      headers: { ...this.HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Planne webhook registration failed ${res.status}: ${text}`);
+    }
+    return res.json();
+  }
+
   // ── Mapping ───────────────────────────────────────────────────────────────
 
   _tariffTypeName(tariffId) {
@@ -172,7 +255,7 @@ class PlanneSyncService {
 
   _paxField(typeName) {
     const n = (typeName || '').toLowerCase();
-    if (n.includes('net'))                                          return 'paxNet';
+    if (n.includes('net'))                                                    return 'paxNet';
     if (n.includes('free') || n.includes('crian') || n.includes('cortesia')) return 'paxFree';
     if (n.includes('meia') || n.includes('half') || n.includes('estudante')) return 'paxHalf';
     if (n.includes('carioca') || n.includes('brasileiro') || n.includes('brazil')) return 'paxBrazilian';
@@ -220,18 +303,18 @@ class PlanneSyncService {
       tourHour:      item.scheduleTime || resv.scheduleTime || '',
       type,
       activity,
-      duration:  this._formatDuration(resv.durationMinutes),
-      platform:  'Planne',
+      duration:      this._formatDuration(resv.durationMinutes),
+      platform:      'Planne',
       language:      LANGUAGE_MAP[langCode] || langCode || '',
       client:        'Planne',
       clientName:    fullName,
       clientContact: contact,
       country:       customer.countryCode ? [COUNTRY_MAP[customer.countryCode] || customer.countryCode] : [],
       totalValue:    sale.amountCents != null ? (sale.amountCents / 100).toFixed(2) : '',
-      currency:      sale.amountCurrencyInfo?.currency || 'BRL',
-      paymentStatus: STATUS_MAP[sale.currentState] || sale.currentState || '',
-      comments:      resv.observation || '',
-      createdAt:     sale.createdAt,
+      currency:        sale.amountCurrencyInfo?.currency || 'BRL',
+      paymentStatus:   '',
+      comments:        resv.observation || '',
+      planneSaleDate:  sale.createdAt || null,
       ...pax,
     };
   }

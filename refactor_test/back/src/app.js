@@ -48,6 +48,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 const PUBLIC = [
   { method: 'POST', path: '/users/login' },
   { method: 'POST', path: '/users/verify-2fa' },
+  { method: 'POST', path: '/planne/webhook' },
   { method: 'GET',  path: '/health' },
 ];
 

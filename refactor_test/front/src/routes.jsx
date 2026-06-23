@@ -36,6 +36,7 @@ import AnalysisByCustomers from './pages/AnalysisByCustomers';
 import AnalysisByHour from './pages/AnalysisByHour';
 import AnalysisByProduct from './pages/AnalysisByProduct';
 import PlanneTourImport from './pages/PlanneTourImport';
+import PlanneWebhookQueue from './pages/PlanneWebhookQueue';
 
 const P = (perms, Child) => (
   <PrivateRoute permissions={perms}><Child /></PrivateRoute>
@@ -55,6 +56,7 @@ export default function AppRoutes() {
       <Route path="/quick-search" element={P([1,2,4,5,7], QuickSearch)} />
       <Route path="/cadastrar-tour" element={P([1,2,4,5,7], TourInput)} />
       <Route path="/importar-planne" element={P([1,2,4,5,7], PlanneTourImport)} />
+      <Route path="/planne-webhook" element={P([1,2,4,5,7], PlanneWebhookQueue)} />
       <Route path="/listar-tours" element={P([1,2,4,5,7], TourList)} />
       <Route path="/editar-tour" element={P([1,2,4,5,7], TourUpdate)} />
       <Route path="/tours-cancelados" element={P([1,2,3,4,5,7], CanceledList)} />
