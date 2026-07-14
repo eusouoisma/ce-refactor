@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Grid, TextField,
   Chip, IconButton, Tooltip, Paper, Button, CircularProgress,
@@ -8,17 +8,20 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
 import MoneyOffRoundedIcon from '@mui/icons-material/MoneyOffRounded';
+import FilterAltOffRoundedIcon from '@mui/icons-material/FilterAltOffRounded';
 import Swal from 'sweetalert2';
 import { DownloadTableExcel } from 'react-export-table-to-excel';
 import { apiFetch } from '../../utils/api';
 import { useStore } from '../../components/Store';
 import { isReadOnly } from '../../utils/permissions';
 import { getAllMonths } from '../../utils/functions';
+import { getPersistedMonths, setPersistedMonths, getPersistedYear, setPersistedYear, hasUrlParams } from '../../utils/storage';
 import DataTable from '../../components/DataTable';
 import { COLORS } from '../../utils/colors';
 
 const PAGE_SIZE = 80;
 const MONTHS = getAllMonths();
+const PAGE_KEY = 'comissions';
 
 const makeActions = (navigate, deleteItem, pay, unpay, canEdit) => (row) => (
   <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -54,23 +57,48 @@ const makeActions = (navigate, deleteItem, pay, unpay, canEdit) => (row) => (
   </Box>
 );
 
-const COLUMNS = (rowActions) => [
-  { key: 'id',                  label: 'Ações',                    render: (_, row) => rowActions(row) },
-  { key: 'orderRef',            label: 'Nº Pedido' },
-  { key: 'tourDateFormated',    label: 'Data do Tour' },
-  { key: 'comissionersName',    label: 'Nome do comissionado' },
-  { key: 'comissionersContact', label: 'Contato do comissionado' },
-  { key: 'comissionCurrency',   label: 'Moeda' },
-  { key: 'comissionPrice',      label: 'Valor' },
+const DATA_COLUMNS = [
+  { key: 'orderRef',            label: 'Nº Pedido',                filterable: true },
+  { key: 'tourDateFormated',    label: 'Data do Tour',             filterable: true },
+  { key: 'comissionersName',    label: 'Nome do comissionado',     filterable: true },
+  { key: 'comissionersContact', label: 'Contato do comissionado',  filterable: true },
+  { key: 'comissionCurrency',   label: 'Moeda',                    filterable: true },
+  { key: 'comissionPrice',      label: 'Valor',                    filterable: true },
   {
-    key: 'comissionPaid', label: 'Pago?',
+    key: 'comissionPaid', label: 'Pago?', filterable: true,
     render: val => val == 1
       ? <Chip label="Pago" size="small" color="success" sx={{ fontSize: '0.7rem', height: 20 }} />
       : null,
   },
-  { key: 'createdBy',           label: 'Criado por' },
-  { key: 'lastEditBy',          label: 'Editado por último por' },
+  { key: 'createdBy',           label: 'Criado por',               filterable: true },
+  { key: 'lastEditBy',          label: 'Editado por último por',   filterable: true },
 ];
+
+const FILTERABLE_KEYS = DATA_COLUMNS.filter(c => c.filterable).map(c => c.key);
+
+function buildFilterQS(filters) {
+  return Object.entries(filters)
+    .filter(([, v]) => v !== null && v.length > 0)
+    .map(([k, v]) => `f_${k}=${encodeURIComponent(v.join('|'))}`)
+    .join('&');
+}
+
+function filtersToParams(filters) {
+  const params = {};
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== null && v.length > 0) params[`f_${k}`] = v.join('|');
+  }
+  return params;
+}
+
+function filtersFromParams(searchParams) {
+  const filters = {};
+  for (const key of FILTERABLE_KEYS) {
+    const raw = searchParams.get(`f_${key}`);
+    filters[key] = raw ? raw.split('|') : null;
+  }
+  return filters;
+}
 
 function Indicator({ label, value }) {
   return (
@@ -85,11 +113,23 @@ function Indicator({ label, value }) {
 
 export default function ComissionList() {
   const navigate = useNavigate();
-  const { userName, userPermissions } = useStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { userName, userPermissions, pageFilters, setPageFilters } = useStore();
   const canEdit = !isReadOnly(userPermissions);
   const tableRef = useRef(null);
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [activeMonths, setActiveMonths] = useState([new Date().getMonth() + 1]);
+  const [year, setYear] = useState(() => {
+    const y = searchParams.get('year');
+    return y ? parseInt(y) : getPersistedYear(PAGE_KEY);
+  });
+  const [activeMonths, setActiveMonths] = useState(() => {
+    const m = searchParams.get('months');
+    return m ? m.split(',').map(Number) : getPersistedMonths(PAGE_KEY, [new Date().getMonth() + 1]);
+  });
+  const [filters, setFilters] = useState(() => (
+    hasUrlParams(searchParams, [])
+      ? filtersFromParams(searchParams)
+      : (pageFilters[PAGE_KEY] || filtersFromParams(searchParams))
+  ));
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [totals, setTotals] = useState({ totalReal: 0, totalDollar: 0 });
@@ -108,9 +148,11 @@ export default function ComissionList() {
     setLoading(true);
     offsetRef.current = 0;
     hasMoreRef.current = true;
+    const fqs = buildFilterQS(filters);
+    const baseUrl = `months=${activeMonths.join(',')}&year=${year}${fqs ? '&' + fqs : ''}`;
     try {
       const data = await apiFetch(
-        `/comissions/list-all?months=${activeMonths.join(',')}&year=${year}&limit=${PAGE_SIZE}&offset=0`
+        `/comissions/list-all?${baseUrl}&limit=${PAGE_SIZE}&offset=0`
       ).then(r => r.json());
       if (fetchGenRef.current !== gen) return;
       const arr = Array.isArray(data.rows) ? data.rows : [];
@@ -125,14 +167,16 @@ export default function ComissionList() {
     } finally {
       setLoading(false);
     }
-  }, [activeMonths, year]);
+  }, [activeMonths, year, filters]); // eslint-disable-line
 
   const loadMore = useCallback(() => {
     if (loadMoreRef.current || !hasMoreRef.current) return;
     loadMoreRef.current = true;
     setLoadingMore(true);
     const gen = fetchGenRef.current;
-    apiFetch(`/comissions/list-all?months=${activeMonths.join(',')}&year=${year}&limit=${PAGE_SIZE}&offset=${offsetRef.current}`)
+    const fqs = buildFilterQS(filters);
+    const baseUrl = `months=${activeMonths.join(',')}&year=${year}${fqs ? '&' + fqs : ''}`;
+    apiFetch(`/comissions/list-all?${baseUrl}&limit=${PAGE_SIZE}&offset=${offsetRef.current}`)
       .then(r => r.json())
       .then(data => {
         if (fetchGenRef.current !== gen) return;
@@ -143,12 +187,38 @@ export default function ComissionList() {
       })
       .catch(() => {})
       .finally(() => { loadMoreRef.current = false; setLoadingMore(false); });
-  }, [activeMonths, year]);
+  }, [activeMonths, year, filters]); // eslint-disable-line
+
+  const fetchColumnOptions = useCallback(async (colKey, signal) => {
+    const fqs = buildFilterQS(filters);
+    const baseUrl = `months=${activeMonths.join(',')}&year=${year}${fqs ? '&' + fqs : ''}`;
+    const r = await apiFetch(`/comissions/filter-options?${baseUrl}&column=${colKey}`, { signal });
+    const data = await r.json();
+    return data[colKey] || [];
+  }, [activeMonths, year, filters]); // eslint-disable-line
 
   useEffect(() => { fetchFirstPage(); }, [fetchFirstPage]);
 
+  useEffect(() => {
+    const params = { year: String(year), months: activeMonths.join(','), ...filtersToParams(filters) };
+    setSearchParams(params, { replace: true });
+    setPersistedYear(PAGE_KEY, year);
+    setPersistedMonths(PAGE_KEY, activeMonths);
+    setPageFilters(PAGE_KEY, filters);
+  }, [year, activeMonths, filters]); // eslint-disable-line
+
   function toggleMonth(m) {
     setActiveMonths(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m]);
+  }
+
+  function handleFilterChange(key, values) {
+    setFilters(prev => ({ ...prev, [key]: values }));
+  }
+
+  function clearAllFilters() {
+    const reset = {};
+    for (const k of FILTERABLE_KEYS) reset[k] = null;
+    setFilters(reset);
   }
 
   async function deleteItem(id) {
@@ -172,13 +242,30 @@ export default function ComissionList() {
   }
 
   const rowActions = makeActions(navigate, deleteItem, pay, unpay, canEdit);
-  const columns = COLUMNS(rowActions);
+  const actionsCol = { key: 'id', label: 'Ações', render: (_, row) => rowActions(row) };
+  const columns = [actionsCol, ...DATA_COLUMNS];
+  const activeFilterCount = Object.values(filters).filter(v => v !== null).length;
 
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
-        <Typography variant="h5">Comissões</Typography>
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+        <Typography variant="h5" sx={{ flexShrink: 0 }}>Comissões</Typography>
+
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mx: 2 }}>
+          {activeFilterCount > 0 && (
+            <Tooltip title="Limpar todos os filtros de coluna">
+              <Button
+                size="small" startIcon={<FilterAltOffRoundedIcon />}
+                variant="outlined" color="warning" onClick={clearAllFilters}
+                sx={{ fontSize: '0.78rem' }}
+              >
+                Limpar filtros ({activeFilterCount})
+              </Button>
+            </Tooltip>
+          )}
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexShrink: 0 }}>
           <Indicator label="R$ Total" value={totals.totalReal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
           <Indicator label="$ Total" value={totals.totalDollar.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
           <DownloadTableExcel filename="comissoes" sheet="comissoes" currentTableRef={tableRef.current}>
@@ -221,6 +308,9 @@ export default function ComissionList() {
       <DataTable
         columns={columns}
         rows={items}
+        filters={filters}
+        fetchOptions={fetchColumnOptions}
+        onFilterChange={handleFilterChange}
         loading={loading}
         altColumns
         emptyMessage="Nenhuma comissão encontrada para o período selecionado."
@@ -236,10 +326,15 @@ export default function ComissionList() {
         </Box>
       )}
 
-      <Box sx={{ mt: 1.5 }}>
+      <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Typography variant="caption" color="text.secondary">
           {loading ? 'Carregando...' : `${items.length} de ${total} comissão${total !== 1 ? 'ões' : ''}`}
         </Typography>
+        {activeFilterCount > 0 && (
+          <Typography variant="caption" color="text.secondary">
+            · {activeFilterCount} filtro{activeFilterCount !== 1 ? 's' : ''} de coluna ativo{activeFilterCount !== 1 ? 's' : ''}
+          </Typography>
+        )}
       </Box>
     </Box>
   );
