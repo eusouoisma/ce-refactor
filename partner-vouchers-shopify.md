@@ -18,6 +18,16 @@ Shopify precisa consumir.
    ```
    (a URL base é a configurada em `SHOPIFY_VOUCHER_PAGE_URL` no backend —
    combine com quem administra o sistema qual é a página real).
+   O link já sai no idioma do cliente, com o prefixo de idioma da Shopify
+   logo depois do domínio: português usa a URL como está, e os outros
+   idiomas ganham `/en`, `/es` ou `/fr`:
+   ```
+   https://sua-loja.myshopify.com/pages/vouchers?token=<JWT>     (pt)
+   https://sua-loja.myshopify.com/en/pages/vouchers?token=<JWT>  (en)
+   https://sua-loja.myshopify.com/es/pages/vouchers?token=<JWT>  (es)
+   https://sua-loja.myshopify.com/fr/pages/vouchers?token=<JWT>  (fr)
+   ```
+   Então a página precisa existir (e funcionar) nas 4 versões de idioma da loja.
 3. O cliente abre o link → a página da Shopify lê o `token` da query string e
    chama a API do CE pra listar os vouchers disponíveis.
 4. Cliente escolhe um voucher → confirma → a página chama a API de resgate.
