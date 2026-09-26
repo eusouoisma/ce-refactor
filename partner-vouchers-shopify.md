@@ -46,12 +46,22 @@ GET {API_URL}/partner-vouchers/public/options?token=<token>
 ```json
 {
   "clientName": "Maria Silva",
+  "language": "pt",
   "vouchers": [
-    { "id": 3, "partnerName": "Hotel Exemplo", "title": "Diária dupla com café", "description": "Uma noite pra 2 pessoas, com café da manhã incluso." },
-    { "id": 5, "partnerName": "Restaurante Exemplo", "title": "Jantar para 2 pessoas", "description": "Válido de segunda a quinta." }
+    { "id": 3, "partnerName": "Hotel Exemplo", "title": "Diária dupla com café", "description": "Uma noite pra 2 pessoas, com café da manhã incluso.", "imageUrl": "https://api.exemplo.com/partner-vouchers/public/vouchers/3/image?v=1790390092916" },
+    { "id": 5, "partnerName": "Restaurante Exemplo", "title": "Jantar para 2 pessoas", "description": "Válido de segunda a quinta.", "imageUrl": null }
   ]
 }
 ```
+
+- `language` é o idioma do cliente (`pt`, `en`, `es` ou `fr`), vindo do
+  pedido da Planne. `partnerName`, `title` e `description` **já vêm traduzidos** nesse
+  idioma; quando falta a tradução de algum campo, ele vem em português. Use
+  `language` pra escolher o idioma dos textos fixos da própria página
+  (botões, confirmação, mensagens de erro).
+- `imageUrl` é a foto do voucher (URL absoluta, pública, pode ir direto num
+  `<img>`), ou `null` quando o voucher não tem foto. Nesse caso, mostre o
+  card sem imagem ou com um placeholder.
 Só vêm vouchers ativos e com estoque > 0 — a lista pode vir vazia (mostrar uma
 mensagem tipo "no momento não há vouchers disponíveis, entre em contato com a
 equipe").
@@ -66,7 +76,7 @@ equipe").
 
 ## 4. Fluxo de escolha na UI
 
-- Listar os vouchers (parceiro + título + descrição) em cards/lista.
+- Listar os vouchers (foto + parceiro + título + descrição) em cards/lista.
 - Ao clicar num voucher, **exigir confirmação** antes de resgatar (ex. modal
   "Confirmar resgate do voucher X?" com botões Confirmar/Cancelar) — a escolha
   é definitiva e debita estoque, não dá pra voltar atrás depois.
@@ -93,6 +103,7 @@ Content-Type: application/json
   "voucher": { "id": 3, "title": "Diária dupla com café", "partnerName": "Hotel Exemplo" }
 }
 ```
+(`partnerName` e `title` vêm no idioma do cliente, igual ao `GET`.)
 
 **Erros:**
 
